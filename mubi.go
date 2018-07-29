@@ -3,8 +3,8 @@ package main
 import (
 	"encoding/json"
 	"flag"
-	"fmt"
 	"github.com/PuerkitoBio/goquery"
+	"github.com/fatih/color"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -116,16 +116,20 @@ func readFromWebPage() []movieData {
 func printFormatted(movies []movieData) {
 	w := new(tabwriter.Writer)
 	w.Init(os.Stdout, 0, 8, 1, '\t', 0)
+	colors := []*color.Color{color.New(color.FgGreen), color.New(color.FgWhite)}
 
-	fmt.Fprintln(w, "\t\t\t\t\t")
-	fmt.Fprintln(w, "Title\tDirector\tRating\tDuration\tYear\tCountry")
-	fmt.Fprintln(w, "\t\t\t\t\t")
-	for _, m := range movies {
-		fmt.Fprintf(w, "%v\t%v\t%v (%v)\t%v\t%v\t%v\n",
+	colors[0].Fprintln(w, "\t\t\t\t\t")
+	colors[0].Fprintln(w, "Title\tDirector\tRating\tDuration\tYear\tCountry")
+	colors[0].Fprintln(w, "\t\t\t\t\t")
+
+	var c *color.Color
+	for i, m := range movies {
+		c = colors[i%2]
+		c.Fprintf(w, "%v\t%v\t%v (%v)\t%v\t%v\t%v\n",
 			m.Title, m.Director, m.MubiRating, m.MubiRatingsNumber,
 			m.Duration, m.Year, m.Country)
 	}
-	fmt.Fprintln(w, "\t\t\t\t\t")
+	colors[0].Fprintln(w, "\t\t\t\t\t")
 
 	w.Flush()
 }
@@ -142,12 +146,17 @@ func writeToCache(movies []movieData) {
 }
 
 func main() {
-	fromFile := flag.Bool("cached", false, "Read data from mubi.json file")
+	flagFromFile := flag.Bool("cached", false, "Read data from mubi.json file")
+	flagNoColor := flag.Bool("no-color", false, "Disable color output")
 	flag.Parse()
+
+	if *flagNoColor {
+		color.NoColor = true
+	}
 
 	var movies []movieData
 
-	if *fromFile {
+	if *flagFromFile {
 		movies = readFromCached()
 	} else {
 		movies = readFromWebPage()
