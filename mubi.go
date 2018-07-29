@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"text/tabwriter"
 	"time"
 )
 
@@ -112,6 +113,34 @@ func readFromWebPage() []movieData {
 	return queryMovies(document)
 }
 
+func printFormatted(movies []movieData) {
+	w := new(tabwriter.Writer)
+	w.Init(os.Stdout, 0, 8, 1, '\t', 0)
+
+	fmt.Fprintln(w, "\t\t\t\t\t")
+	fmt.Fprintln(w, "Title\tDirector\tRating\tDuration\tYear\tCountry")
+	fmt.Fprintln(w, "\t\t\t\t\t")
+	for _, m := range movies {
+		fmt.Fprintf(w, "%v\t%v\t%v (%v)\t%v\t%v\t%v\n",
+			m.Title, m.Director, m.MubiRating, m.MubiRatingsNumber,
+			m.Duration, m.Year, m.Country)
+	}
+	fmt.Fprintln(w, "\t\t\t\t\t")
+
+	w.Flush()
+}
+
+func writeToCache(movies []movieData) {
+	out, err := json.MarshalIndent(movies, "", " ")
+	if err != nil {
+		log.Fatal("json could not be marshalled ", err)
+	}
+	err = ioutil.WriteFile(cacheFile, out, 0666)
+	if err != nil {
+		log.Fatal("Could not write to mubi.json file ", err)
+	}
+}
+
 func main() {
 	fromFile := flag.Bool("cached", false, "Read data from mubi.json file")
 	flag.Parse()
@@ -123,16 +152,7 @@ func main() {
 	} else {
 		movies = readFromWebPage()
 	}
+	writeToCache(movies)
 
-	out, err := json.MarshalIndent(movies, "", " ")
-	if err != nil {
-		log.Fatal("json could not be marshalled ", err)
-	}
-
-	fmt.Println(string(out))
-
-	err = ioutil.WriteFile(cacheFile, out, 0666)
-	if err != nil {
-		log.Fatal("Could not write to mubi.json file ", err)
-	}
+	printFormatted(movies)
 }
