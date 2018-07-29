@@ -27,7 +27,7 @@ const (
 	selLink           = ".full-width-tile__link"
 	selRating         = ".average-rating__overall"
 	selRatingsNumber  = ".average-rating__total"
-	selDuration       = "[itemprop=duration]"
+	selMins           = "[itemprop=duration]"
 )
 
 var cacheFile = filepath.Join(os.Getenv("GOPATH"), "mubi.json")
@@ -37,7 +37,7 @@ type movieData struct {
 	Director          string `json:"director"`
 	Country           string `json:"country"`
 	Year              string `json:"year"`
-	Duration          string `json:"duration"`
+	Mins              string `json:"mins"`
 	MubiRating        string `json:"MUBI rating"`
 	MubiRatingsNumber string `json:"MUBI ratings num"`
 }
@@ -55,7 +55,7 @@ func queryMovieDetails(url string, md *movieData) {
 	}
 
 	md.MubiRating = strings.TrimSpace(document.Find(selRating).Text())
-	md.Duration = strings.TrimSpace(document.Find(selDuration).Text())
+	md.Mins = strings.TrimSpace(document.Find(selMins).Text())
 	raw := document.Find(selRatingsNumber).Text()
 	md.MubiRatingsNumber = strings.TrimSpace(strings.Trim(raw, "Ratings\n"))
 }
@@ -115,21 +115,21 @@ func readFromWebPage() []movieData {
 
 func printFormatted(movies []movieData) {
 	w := new(tabwriter.Writer)
-	w.Init(os.Stdout, 0, 8, 1, '\t', 0)
-	colors := []*color.Color{color.New(color.FgGreen), color.New(color.FgWhite)}
+	w.Init(os.Stdout, 0, 8, 4, ' ', 0)
+	colors := []*color.Color{color.New(color.FgWhite), color.New(color.FgGreen)}
 
-	colors[0].Fprintln(w, "\t\t\t\t\t")
-	colors[0].Fprintln(w, "Title\tDirector\tRating\tDuration\tYear\tCountry")
-	colors[0].Fprintln(w, "\t\t\t\t\t")
+	colors[0].Fprintln(w, strings.Repeat("\t", 5))
+	colors[0].Fprintln(w, "Title\tDirector\tRating\tMins\tYear\tCountry")
+	colors[0].Fprintln(w, strings.Repeat("\t", 5))
 
 	var c *color.Color
 	for i, m := range movies {
 		c = colors[i%2]
 		c.Fprintf(w, "%v\t%v\t%v (%v)\t%v\t%v\t%v\n",
 			m.Title, m.Director, m.MubiRating, m.MubiRatingsNumber,
-			m.Duration, m.Year, m.Country)
+			m.Mins, m.Year, m.Country)
 	}
-	colors[0].Fprintln(w, "\t\t\t\t\t")
+	colors[0].Fprintln(w, strings.Repeat("\t", 5))
 
 	w.Flush()
 }
