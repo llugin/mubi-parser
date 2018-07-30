@@ -1,10 +1,10 @@
-package main
+package mubi
 
 import (
 	"encoding/json"
-	"flag"
 	"github.com/PuerkitoBio/goquery"
 	"github.com/fatih/color"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -32,7 +32,8 @@ const (
 
 var cacheFile = filepath.Join(os.Getenv("GOPATH"), "mubi.json")
 
-type movieData struct {
+// MovieData represent data collected by parser about movie
+type MovieData struct {
 	Title             string `json:"title"`
 	Director          string `json:"director"`
 	Country           string `json:"country"`
@@ -42,7 +43,7 @@ type movieData struct {
 	MubiRatingsNumber string `json:"MUBI ratings num"`
 }
 
-func queryMovieDetails(url string, md *movieData) {
+func queryMovieDetails(url string, md *MovieData) {
 	resp, err := http.Get(url)
 	if err != nil {
 		log.Fatal("Error loading html body", err)
@@ -60,11 +61,11 @@ func queryMovieDetails(url string, md *movieData) {
 	md.MubiRatingsNumber = strings.TrimSpace(strings.Trim(raw, "Ratings\n"))
 }
 
-func queryMovies(doc *goquery.Document) []movieData {
-	var movies []movieData
+func queryMovies(doc *goquery.Document) []MovieData {
+	var movies []MovieData
 
 	doc.Find(selMovie).Each(func(i int, s *goquery.Selection) {
-		var md movieData
+		var md MovieData
 
 		md.Title = s.Find(selTitle).Text()
 		md.Director = s.Find(selDirector).Text()
@@ -87,33 +88,42 @@ func queryMovies(doc *goquery.Document) []movieData {
 	return movies
 }
 
-func readFromCached() []movieData {
+// GetBodyFromWeb gets current HTML body with shown movies
+// from MUBI website. Body needs to be closed by user
+func GetBodyFromWeb() *io.ReadCloser {
+	resp, err := http.Get(showingURL)
+	if err != nil {
+		log.Fatal("Error loading html body ", err)
+	}
+	return &resp.Body
+}
+
+// ReadFromCached reads json data from cache file
+func ReadFromCached() []MovieData {
 	out, err := ioutil.ReadFile(cacheFile)
 	if err != nil {
 		log.Fatal("cache file could not be opened ", err)
 	}
-	var movies []movieData
+	var movies []MovieData
 	if err := json.Unmarshal(out, &movies); err != nil {
 		log.Fatal("Could not read data from cache ", err)
 	}
 	return movies
 }
 
-func readFromWebPage() []movieData {
-	resp, err := http.Get(showingURL)
-	if err != nil {
-		log.Fatal("Error loading html body ", err)
-	}
-	defer resp.Body.Close()
-	time.Sleep(time.Second * 3)
-	document, err := goquery.NewDocumentFromReader(resp.Body)
+// ReadFromBody reads data from HTML body
+func ReadFromBody(rc *io.ReadCloser) []MovieData {
+	document, err := goquery.NewDocumentFromReader(*rc)
 	if err != nil {
 		log.Fatal("Error loading HTTP response body. ", err)
 	}
 	return queryMovies(document)
 }
 
-func printFormatted(movies []movieData) {
+// PrintFormatted pretty-prints collected data
+func PrintFormatted(movies []MovieData, noColor bool) {
+
+	color.NoColor = noColor
 	w := new(tabwriter.Writer)
 	w.Init(os.Stdout, 0, 8, 4, ' ', 0)
 	colors := []*color.Color{color.New(color.FgWhite), color.New(color.FgGreen)}
@@ -134,7 +144,8 @@ func printFormatted(movies []movieData) {
 	w.Flush()
 }
 
-func writeToCache(movies []movieData) {
+// WriteToCache writes collected data to cache file as json
+func WriteToCache(movies []MovieData) {
 	out, err := json.MarshalIndent(movies, "", " ")
 	if err != nil {
 		log.Fatal("json could not be marshalled ", err)
@@ -143,25 +154,4 @@ func writeToCache(movies []movieData) {
 	if err != nil {
 		log.Fatal("Could not write to mubi.json file ", err)
 	}
-}
-
-func main() {
-	flagFromFile := flag.Bool("cached", false, "Read data from mubi.json file")
-	flagNoColor := flag.Bool("no-color", false, "Disable color output")
-	flag.Parse()
-
-	if *flagNoColor {
-		color.NoColor = true
-	}
-
-	var movies []movieData
-
-	if *flagFromFile {
-		movies = readFromCached()
-	} else {
-		movies = readFromWebPage()
-	}
-	writeToCache(movies)
-
-	printFormatted(movies)
 }
