@@ -20,11 +20,11 @@ const (
 	baseURL    = "https://mubi.com"
 
 	// mubi goquery selection queries
-	selMovie          = ".full-width-tile--now-showing"
-	selTitle          = ".full-width-tile__title"
+	selMovie          = ".full-width-tile--now-showing, .showing-page-hero-tile"
+	selTitle          = ".full-width-tile__title, .showing-page-hero-tile__title"
 	selDirector       = "[itemprop=name]"
 	selCountryAndYear = ".now-showing-tile-director-year__year-country"
-	selLink           = ".full-width-tile__link"
+	selLink           = ".full-width-tile__link, .showing-page-hero-tile__link"
 	selRating         = ".average-rating__overall"
 	selRatingsNumber  = ".average-rating__total"
 	selMins           = "[itemprop=duration]"
