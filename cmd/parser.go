@@ -2,7 +2,7 @@ package main
 
 import (
 	"flag"
-	"mubi-parser/pkg/mubi"
+	"github.com/llugin/mubi-parser/pkg/mubi"
 )
 
 func main() {
