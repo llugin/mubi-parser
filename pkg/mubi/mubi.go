@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/PuerkitoBio/goquery"
 	"github.com/llugin/mubi-parser/pkg/movie"
-	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -13,6 +12,7 @@ import (
 const (
 	showingURL = "https://mubi.com/showing"
 	baseURL    = "https://mubi.com"
+	maxMovies  = 30
 
 	// mubi goquery selection queries
 	selMovie          = ".full-width-tile--now-showing, .showing-page-hero-tile"
@@ -25,24 +25,79 @@ const (
 	selMins           = "[itemprop=duration]"
 )
 
-func queryMovies(doc *goquery.Document) []movie.Data {
+// GetMovies reads movie data from HTML body
+func GetMovies() ([]movie.Data, error) {
 	var movies []movie.Data
 
-	doc.Find(selMovie).Each(func(i int, s *goquery.Selection) {
-		movie, err := queryBasic(s)
-		time.Sleep(time.Second * 3)
-		if err != nil {
-			fmt.Println(err)
-		} else {
-			queryMovieDetails(&movie)
-		}
-		movies = append(movies, movie)
-	})
+	moviesChan, err := ReceiveMoviesWithBasicData()
+	if err != nil {
+		return movies, err
+	}
+	out := ReceiveMoviesDetails(moviesChan)
 
-	return movies
+	for m := range out {
+		movies = append(movies, m)
+	}
+	return movies, nil
 }
 
-func queryBasic(s *goquery.Selection) (movie.Data, error) {
+// ReceiveMoviesWithBasicData returns a buffered channel with
+// movies with basic data available to collect from mubi main page
+func ReceiveMoviesWithBasicData() (<-chan movie.Data, error) {
+	moviesChan := make(chan movie.Data, maxMovies)
+
+	s, err := getSelectionFromWebPage()
+	if err != nil {
+		close(moviesChan)
+		return moviesChan, err
+	}
+
+	go func() {
+		s.Each(func(i int, s *goquery.Selection) {
+			movie, err := queryBasicData(s)
+			if err != nil {
+				fmt.Println(err)
+			} else {
+				moviesChan <- movie
+			}
+		})
+		close(moviesChan)
+	}()
+	return moviesChan, nil
+}
+
+//ReceiveMoviesDetails returns channel with movies with detailed data
+func ReceiveMoviesDetails(in <-chan movie.Data) <-chan movie.Data {
+	out := make(chan movie.Data, maxMovies)
+	go func() {
+		for md := range in {
+			time.Sleep(time.Second * 3)
+
+			url := baseURL + md.MubiLink
+			resp, err := http.Get(url)
+			if err != nil {
+				out <- md
+			}
+			defer resp.Body.Close()
+
+			document, err := goquery.NewDocumentFromReader(resp.Body)
+			if err != nil {
+				out <- md
+			}
+
+			md.MubiRating = strings.TrimSpace(document.Find(selRating).Text())
+			md.Mins = strings.TrimSpace(document.Find(selMins).Text())
+			raw := document.Find(selRatingsNumber).Text()
+			md.MubiRatingsNumber = strings.TrimSpace(strings.Trim(raw, "Ratings\n"))
+
+			out <- md
+		}
+		close(out)
+	}()
+	return out
+}
+
+func queryBasicData(s *goquery.Selection) (movie.Data, error) {
 	var md movie.Data
 	var err error
 
@@ -60,47 +115,17 @@ func queryBasic(s *goquery.Selection) (movie.Data, error) {
 	}
 	return md, err
 }
-func queryMovieDetails(md *movie.Data) error {
-	url := baseURL + md.MubiLink
-	resp, err := http.Get(url)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
 
-	document, err := goquery.NewDocumentFromReader(resp.Body)
-	if err != nil {
-		return err
-	}
-
-	md.MubiRating = strings.TrimSpace(document.Find(selRating).Text())
-	md.Mins = strings.TrimSpace(document.Find(selMins).Text())
-	raw := document.Find(selRatingsNumber).Text()
-	md.MubiRatingsNumber = strings.TrimSpace(strings.Trim(raw, "Ratings\n"))
-
-	return nil
-}
-
-// GetBodyFromWeb gets current HTML body with shown movies
-// from MUBI website. Body needs to be closed by user
-func GetBodyFromWeb() (*io.ReadCloser, error) {
-	resp, err := http.Get(showingURL)
-	return &resp.Body, err
-}
-
-// GetMovies reads data from HTML body
-func GetMovies() ([]movie.Data, error) {
+func getSelectionFromWebPage() (*goquery.Selection, error) {
 	resp, err := http.Get(showingURL)
 	if err != nil {
 		return nil, err
-
 	}
 	defer resp.Body.Close()
-
-	document, err := goquery.NewDocumentFromReader(resp.Body)
+	doc, err := goquery.NewDocumentFromReader(resp.Body)
 	if err != nil {
 		return nil, err
 	}
-	movies := queryMovies(document)
-	return movies, nil
+
+	return doc.Find(selMovie), nil
 }
