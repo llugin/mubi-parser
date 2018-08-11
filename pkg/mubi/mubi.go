@@ -10,9 +10,10 @@ import (
 )
 
 const (
+	// MaxMovies is a number of currently available movies
+	MaxMovies  = 30
 	showingURL = "https://mubi.com/showing"
 	baseURL    = "https://mubi.com"
-	maxMovies  = 30
 
 	// mubi goquery selection queries
 	selMovie          = ".full-width-tile--now-showing, .showing-page-hero-tile"
@@ -25,26 +26,10 @@ const (
 	selMins           = "[itemprop=duration]"
 )
 
-// GetMovies reads movie data from HTML body
-func GetMovies() ([]movie.Data, error) {
-	var movies []movie.Data
-
-	moviesChan, err := ReceiveMoviesWithBasicData()
-	if err != nil {
-		return movies, err
-	}
-	out := ReceiveMoviesDetails(moviesChan)
-
-	for m := range out {
-		movies = append(movies, m)
-	}
-	return movies, nil
-}
-
 // ReceiveMoviesWithBasicData returns a buffered channel with
 // movies with basic data available to collect from mubi main page
 func ReceiveMoviesWithBasicData() (<-chan movie.Data, error) {
-	moviesChan := make(chan movie.Data, maxMovies)
+	moviesChan := make(chan movie.Data, MaxMovies)
 
 	s, err := getSelectionFromWebPage()
 	if err != nil {
@@ -68,7 +53,7 @@ func ReceiveMoviesWithBasicData() (<-chan movie.Data, error) {
 
 //ReceiveMoviesDetails returns channel with movies with detailed data
 func ReceiveMoviesDetails(in <-chan movie.Data) <-chan movie.Data {
-	out := make(chan movie.Data, maxMovies)
+	out := make(chan movie.Data, MaxMovies)
 	go func() {
 		for md := range in {
 			time.Sleep(time.Second * 3)

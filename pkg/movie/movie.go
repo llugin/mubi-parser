@@ -10,8 +10,12 @@ import (
 	"text/tabwriter"
 )
 
-var cacheFile string
-var cacheErr error
+const cacheFileName = "mubi.json"
+
+var (
+	cacheFilePath string
+	cacheErr      error
+)
 
 // Data represent movie data collected by parser
 type Data struct {
@@ -29,7 +33,7 @@ type Data struct {
 
 func init() {
 	ex, err := os.Executable()
-	cacheFile = filepath.Join(filepath.Dir(ex), "mubi.json")
+	cacheFilePath = filepath.Join(filepath.Dir(ex), cacheFileName)
 	cacheErr = err
 }
 
@@ -42,7 +46,7 @@ func WriteToCache(movies []Data) error {
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(cacheFile, out, 0666)
+	err = ioutil.WriteFile(cacheFilePath, out, 0666)
 	if err != nil {
 		return err
 	}
@@ -56,7 +60,7 @@ func ReadFromCached() ([]Data, error) {
 		return movies, cacheErr
 	}
 
-	out, err := ioutil.ReadFile(cacheFile)
+	out, err := ioutil.ReadFile(cacheFilePath)
 	if err != nil {
 		return movies, err
 	}
@@ -69,23 +73,24 @@ func ReadFromCached() ([]Data, error) {
 // PrintFormatted pretty-prints collected data
 func PrintFormatted(movies []Data, noColor bool) {
 	color.NoColor = noColor
+	columnsNo := 6
 
 	w := new(tabwriter.Writer)
 	w.Init(os.Stdout, 0, 8, 4, ' ', 0)
 	colors := []*color.Color{color.New(color.FgWhite), color.New(color.FgGreen)}
 
-	colors[0].Fprintln(w, strings.Repeat("\t", 5))
-	colors[0].Fprintln(w, "Title\tDirector\tRating\tMins\tYear\tCountry")
-	colors[0].Fprintln(w, strings.Repeat("\t", 5))
+	colors[0].Fprintln(w, strings.Repeat("\t", columnsNo))
+	colors[0].Fprintln(w, "Title\tDirector\tMUBI\tIMDB\tMins\tYear\tCountry")
+	colors[0].Fprintln(w, strings.Repeat("\t", columnsNo))
 
 	var c *color.Color
 	for i, m := range movies {
 		c = colors[i%2]
-		c.Fprintf(w, "%v\t%v\t%v (%v)\t%v\t%v\t%v\n",
+		c.Fprintf(w, "%v\t%v\t%v (%v)\t%v (%v)\t%v\t%v\t%v\n",
 			m.Title, m.Director, m.MubiRating, m.MubiRatingsNumber,
-			m.Mins, m.Year, m.Country)
+			m.ImdbRating, m.ImdbRatingsNumber, m.Mins, m.Year, m.Country)
 	}
-	colors[0].Fprintln(w, strings.Repeat("\t", 5))
+	colors[0].Fprintln(w, strings.Repeat("\t", columnsNo))
 
 	w.Flush()
 }

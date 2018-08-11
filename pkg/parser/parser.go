@@ -1,23 +1,24 @@
 package parser
 
 import (
-	"github.com/PuerkitoBio/goquery"
-	"github.com/llugin/mubi-parser/imdb"
-	"github.com/llugin/mubi-parser/movie"
-	"github.com/llugin/mubi-parser/mubi"
+	"github.com/llugin/mubi-parser/pkg/imdb"
+	"github.com/llugin/mubi-parser/pkg/movie"
+	"github.com/llugin/mubi-parser/pkg/mubi"
 )
 
-func queryMovies(doc *goquery.Document) []movie.Data {
+// GetMovies reads movie data from HTML body
+func GetMovies() ([]movie.Data, error) {
 	var movies []movie.Data
 
-	doc.Find(selMovie).Each(func(i int, s *goquery.Selection) {
-		movie := mubi.GetBasicInfo(s)
-		time.Sleep(time.Second * 3)
-		imdb.GetRatings(&movie)
+	moviesChan, err := mubi.ReceiveMoviesWithBasicData()
+	if err != nil {
+		return movies, err
+	}
+	mubiOut := mubi.ReceiveMoviesDetails(moviesChan)
+	imdbOut := imdb.GetRatings(mubiOut)
 
-		mubi.GetDetails(&movie)
-		movies = append(movies, movie)
-	})
-
-	return movies
+	for m := range imdbOut {
+		movies = append(movies, m)
+	}
+	return movies, nil
 }

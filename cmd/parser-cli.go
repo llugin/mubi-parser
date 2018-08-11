@@ -4,7 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/llugin/mubi-parser/pkg/movie"
-	"github.com/llugin/mubi-parser/pkg/mubi"
+	"github.com/llugin/mubi-parser/pkg/parser"
 	"log"
 	"time"
 )
@@ -23,7 +23,7 @@ func main() {
 	if *flagFromFile {
 		movies, err = movie.ReadFromCached()
 	} else {
-		movies, err = mubi.GetMovies()
+		movies, err = parser.GetMovies()
 	}
 	if err != nil {
 		log.Fatal(err)
