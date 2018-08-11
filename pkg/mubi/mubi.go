@@ -5,6 +5,7 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/llugin/mubi-parser/pkg/movie"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -20,6 +21,8 @@ const (
 	selTitle          = ".full-width-tile__title, .showing-page-hero-tile__title"
 	selDirector       = "[itemprop=name]"
 	selCountryAndYear = ".now-showing-tile-director-year__year-country"
+	selGenre          = ".film-show__genres"
+	selAltTitle       = ".film-show__titles__title-alt"
 	selLink           = ".full-width-tile__link, .showing-page-hero-tile__link"
 	selRating         = ".average-rating__overall"
 	selRatingsNumber  = ".average-rating__total"
@@ -62,15 +65,19 @@ func ReceiveMoviesDetails(in <-chan movie.Data) <-chan movie.Data {
 			resp, err := http.Get(url)
 			if err != nil {
 				out <- md
+				continue
 			}
 			defer resp.Body.Close()
 
 			document, err := goquery.NewDocumentFromReader(resp.Body)
 			if err != nil {
 				out <- md
+				continue
 			}
 
 			md.MubiRating = strings.TrimSpace(document.Find(selRating).Text())
+			md.Genre = strings.TrimSpace(document.Find(selGenre).Text())
+			md.AltTitle = strings.TrimSpace(document.Find(selAltTitle).Text())
 			md.Mins = strings.TrimSpace(document.Find(selMins).Text())
 			raw := document.Find(selRatingsNumber).Text()
 			md.MubiRatingsNumber = strings.TrimSpace(strings.Trim(raw, "Ratings\n"))
@@ -91,7 +98,11 @@ func queryBasicData(s *goquery.Selection) (movie.Data, error) {
 
 	countryAndYear := strings.Split(s.Find(selCountryAndYear).Text(), ", ")
 	md.Country = countryAndYear[0]
-	md.Year = countryAndYear[1]
+	md.AbbrevCountry()
+	year, err := strconv.Atoi(countryAndYear[1])
+	if err == nil {
+		md.Year = year
+	}
 
 	link, exists := s.Find(selLink).Attr("href")
 	md.MubiLink = link

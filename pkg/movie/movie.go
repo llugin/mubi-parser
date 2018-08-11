@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"github.com/fatih/color"
 	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -22,8 +23,10 @@ type Data struct {
 	Title             string `json:"title"`
 	Director          string `json:"director"`
 	Country           string `json:"country"`
-	Year              string `json:"year"`
+	Year              int    `json:"year,string"`
+	Genre             string `json:"genre"`
 	Mins              string `json:"mins"`
+	AltTitle          string `json:"alt title"`
 	MubiLink          string `json:"MUBI link"`
 	MubiRating        string `json:"MUBI rating"`
 	MubiRatingsNumber string `json:"MUBI ratings num"`
@@ -31,10 +34,30 @@ type Data struct {
 	ImdbRatingsNumber string `json:"IMDB ratings num"`
 }
 
+// AbbrevCountry abbreviates names of selected countries
+func (d *Data) AbbrevCountry() {
+	switch d.Country {
+	case "United States":
+		d.Country = "USA"
+	case "United Kingdom":
+		d.Country = "UK"
+	case "Soviet Union":
+		d.Country = "USSR"
+	case "South Africa":
+		d.Country = "RSA"
+	default:
+		return
+	}
+}
+
 func init() {
+	log.SetFlags(log.Lshortfile)
+
 	ex, err := os.Executable()
+	if err != nil {
+		log.Fatal(err)
+	}
 	cacheFilePath = filepath.Join(filepath.Dir(ex), cacheFileName)
-	cacheErr = err
 }
 
 // WriteToCache writes collected data to cache file as json
@@ -56,9 +79,6 @@ func WriteToCache(movies []Data) error {
 // ReadFromCached reads json data from cache file
 func ReadFromCached() ([]Data, error) {
 	var movies []Data
-	if cacheErr != nil {
-		return movies, cacheErr
-	}
 
 	out, err := ioutil.ReadFile(cacheFilePath)
 	if err != nil {
@@ -73,22 +93,22 @@ func ReadFromCached() ([]Data, error) {
 // PrintFormatted pretty-prints collected data
 func PrintFormatted(movies []Data, noColor bool) {
 	color.NoColor = noColor
-	columnsNo := 6
+	columnsNo := 7
 
 	w := new(tabwriter.Writer)
 	w.Init(os.Stdout, 0, 8, 4, ' ', 0)
 	colors := []*color.Color{color.New(color.FgWhite), color.New(color.FgGreen)}
 
 	colors[0].Fprintln(w, strings.Repeat("\t", columnsNo))
-	colors[0].Fprintln(w, "Title\tDirector\tMUBI\tIMDB\tMins\tYear\tCountry")
+	colors[0].Fprintln(w, "Title\tDirector\tMUBI\tIMDB\tMins\tYear\tCountry\tGenre")
 	colors[0].Fprintln(w, strings.Repeat("\t", columnsNo))
 
 	var c *color.Color
 	for i, m := range movies {
 		c = colors[i%2]
-		c.Fprintf(w, "%v\t%v\t%v (%v)\t%v (%v)\t%v\t%v\t%v\n",
+		c.Fprintf(w, "%v\t%v\t%v (%v)\t%v (%v)\t%v\t%v\t%v\t%v\n",
 			m.Title, m.Director, m.MubiRating, m.MubiRatingsNumber,
-			m.ImdbRating, m.ImdbRatingsNumber, m.Mins, m.Year, m.Country)
+			m.ImdbRating, m.ImdbRatingsNumber, m.Mins, m.Year, m.Country, m.Genre)
 	}
 	colors[0].Fprintln(w, strings.Repeat("\t", columnsNo))
 

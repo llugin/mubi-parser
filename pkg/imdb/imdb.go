@@ -15,11 +15,13 @@ import (
 )
 
 const (
-	keyFile   = "omdb_api"
-	urlFormat = "http://www.omdbapi.com/?t=%s&y=%s&apikey=%s"
+	keyFile   = "omdb_apikey"
+	urlFormat = "http://www.omdbapi.com/?t=%s&y=%v&type=movie&apikey=%s"
 )
 
 var (
+	//APICount - OMDB API call counter
+	APICount    int
 	keyFilePath string
 	key         string
 )
@@ -28,15 +30,17 @@ type apiResp struct {
 	ImdbRating string `json:"imdbRating"`
 	ImdbVotes  string `json:"imdbVotes"`
 	Response   string `json:"Response"`
+	Director   string `json:"Director"`
 	Error      string `json:"Error"`
 }
 
 func init() {
+	log.SetFlags(log.Lshortfile)
+
 	var err error
 	key, err = getKey()
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		log.Fatal(err)
 	}
 }
 
@@ -55,37 +59,59 @@ func GetRatings(in <-chan movie.Data) <-chan movie.Data {
 }
 
 func obtainMovieRating(m *movie.Data) {
-	ar, err := getAPIResp(m)
-	if err != nil || ar.Response != "True" {
-		return
+	var ar apiResp
+	var err error
+
+	if ar, err = getAPIResp(m.Title, m.Director, m.Year); err == nil {
+		goto Found // Try with alternative title
 	}
 
+	if m.AltTitle != "" {
+		if ar, err = getAPIResp(m.AltTitle, m.Director, m.Year); err == nil {
+			goto Found
+		}
+	}
+
+	if ar, err = getAPIResp(m.Title, m.Director, m.Year-1); err == nil {
+		goto Found
+	}
+
+	if ar, err = getAPIResp(m.Title, m.Director, m.Year+1); err == nil {
+		goto Found
+	}
+
+Found:
 	m.ImdbRating = ar.ImdbRating
 	m.ImdbRatingsNumber = ar.ImdbVotes
 }
 
-func getAPIResp(m *movie.Data) (apiResp, error) {
+func getAPIResp(title, director string, year int) (apiResp, error) {
+	APICount++
 	var ar apiResp
+	var err error
 
-	url := fmt.Sprintf(urlFormat, strings.Replace(m.Title, " ", "+", -1), m.Year, key)
+	// release dates according to IMDB and MUBI can differ, therefore
+	// query is made with 1 year approximation
+
+	url := fmt.Sprintf(urlFormat, strings.Replace(title, " ", "+", -1), year, key)
 	resp, err := http.Get(url)
 	if err != nil {
-		log.Println(err)
 		return ar, err
 	}
 	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		log.Println(err)
 		return ar, err
 	}
 	err = json.Unmarshal(body, &ar)
-	if err != nil {
-		log.Println(err)
+	if err != nil && ar.Response != "True" {
+		err = fmt.Errorf(ar.Error)
+	}
+	if ar.Director != director {
+		err = fmt.Errorf("Wrong director")
 	}
 	return ar, err
-
 }
 
 func getKey() (string, error) {
