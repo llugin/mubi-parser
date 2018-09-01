@@ -24,6 +24,7 @@ var (
 	APICount    int
 	keyFilePath string
 	key         string
+	keyError    error
 )
 
 type apiResp struct {
@@ -36,11 +37,9 @@ type apiResp struct {
 
 func init() {
 	log.SetFlags(log.Lshortfile)
-
-	var err error
-	key, err = getKey()
-	if err != nil {
-		log.Fatal(err)
+	key, keyError = getKey()
+	if keyError != nil {
+		log.Printf("%v. Could not get OMDB API key. Skipping IMDB data acquirement.", keyError)
 	}
 }
 
@@ -49,8 +48,10 @@ func GetRatings(in <-chan movie.Data) <-chan movie.Data {
 	out := make(chan movie.Data, mubi.MaxMovies)
 	go func() {
 		for m := range in {
-			time.Sleep(time.Millisecond * 200)
-			obtainMovieRating(&m)
+			if keyError == nil {
+				time.Sleep(time.Millisecond * 200)
+				obtainMovieRating(&m)
+			}
 			out <- m
 		}
 		close(out)
@@ -63,19 +64,18 @@ func obtainMovieRating(m *movie.Data) {
 	var err error
 
 	if ar, err = getAPIResp(m.Title, m.Director, m.Year); err == nil {
-		goto Found // Try with alternative title
+		goto Found
 	}
-
+	// Try alternative title
 	if m.AltTitle != "" {
 		if ar, err = getAPIResp(m.AltTitle, m.Director, m.Year); err == nil {
 			goto Found
 		}
 	}
-
+	// Try with approximate years (+1/-1 year)
 	if ar, err = getAPIResp(m.Title, m.Director, m.Year-1); err == nil {
 		goto Found
 	}
-
 	if ar, err = getAPIResp(m.Title, m.Director, m.Year+1); err == nil {
 		goto Found
 	}
