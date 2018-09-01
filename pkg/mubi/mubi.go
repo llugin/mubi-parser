@@ -41,13 +41,17 @@ func ReceiveMoviesWithBasicData() (<-chan movie.Data, error) {
 	}
 
 	go func() {
+		daysToWatch := MaxMovies
 		s.Each(func(i int, s *goquery.Selection) {
 			movie, err := queryBasicData(s)
 			if err != nil {
 				fmt.Println(err)
 			} else {
+				movie.DaysToWatch = daysToWatch
+
 				moviesChan <- movie
 			}
+			daysToWatch--
 		})
 		close(moviesChan)
 	}()

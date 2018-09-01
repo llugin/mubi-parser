@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"text/tabwriter"
 )
@@ -32,6 +33,7 @@ type Data struct {
 	MubiRatingsNumber string `json:"MUBI ratings num"`
 	ImdbRating        string `json:"IMDB rating"`
 	ImdbRatingsNumber string `json:"IMDB ratings num"`
+	DaysToWatch       int    `json:"days,string"`
 }
 
 // AbbrevCountry abbreviates names of selected countries
@@ -58,6 +60,13 @@ func init() {
 		log.Fatal(err)
 	}
 	cacheFilePath = filepath.Join(filepath.Dir(ex), cacheFileName)
+}
+
+// Sort sorts slice of movies by days to watch
+func Sort(movies []Data) {
+	sort.Slice(movies, func(i, j int) bool {
+		return movies[i].DaysToWatch > movies[j].DaysToWatch
+	})
 }
 
 // WriteToCache writes collected data to cache file as json

@@ -12,23 +12,27 @@ import (
 func main() {
 	log.SetFlags(log.Lshortfile)
 
-	flagFromFile := flag.Bool("cached", false, "Read data from mubi.json file")
+	flagFromFile := flag.Bool("cached", false, "Read only data from mubi.json file - no web connection are made")
 	flagNoColor := flag.Bool("no-color", false, "Disable color output")
+	flagRefresh := flag.Bool("refresh", false, "Refresh all data, not only new movies")
 	flag.Parse()
 
 	var movies []movie.Data
 	var err error
 
 	start := time.Now()
-	if *flagFromFile {
+
+	switch {
+	case *flagFromFile:
 		movies, err = movie.ReadFromCached()
-	} else {
-		movies, err = parser.GetMovies()
+	default:
+		movies, err = parser.GetMovies(*flagRefresh)
 	}
+
 	if err != nil {
 		log.Fatal(err)
 	}
-
+	movie.Sort(movies)
 	movie.PrintFormatted(movies, *flagNoColor)
 
 	err = movie.WriteToCache(movies)
