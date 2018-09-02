@@ -118,6 +118,9 @@ func getAPIResp(title, director string, year int) (apiResp, error) {
 	if err != nil && ar.Response != "True" {
 		err = fmt.Errorf(ar.Error)
 	}
+	if ar.Director != director {
+		err = fmt.Errorf("Wrong director")
+	}
 	return ar, err
 }
 
