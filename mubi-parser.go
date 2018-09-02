@@ -28,8 +28,11 @@ func (s *sortValue) Set(val string) error {
 	case "imdb":
 		s.sortingFunc = movie.SortByImdb
 		return nil
+	case "mins":
+		s.sortingFunc = movie.SortByMins
+		return nil
 	default:
-		return fmt.Errorf("invalid sort value. Use [mubi|imdb|days]")
+		return fmt.Errorf("invalid sort value. Use [mubi|imdb|days|mins]")
 	}
 }
 
@@ -42,7 +45,7 @@ func main() {
 	flagRefresh := flag.Bool("refresh", false, "Refresh all data, not only new movies")
 
 	sv := sortValue{movie.SortByDays}
-	flag.Var(&sv, "sort", "Sort by: [mubi|imdb|days], default: days")
+	flag.Var(&sv, "sort", "Sort by: [mubi|imdb|days|mins], default: days")
 	flag.Parse()
 
 	var movies []movie.Data

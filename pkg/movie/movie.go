@@ -27,7 +27,7 @@ type Data struct {
 	Country           string  `json:"country"`
 	Year              int     `json:"year,string"`
 	Genre             string  `json:"genre"`
-	Mins              string  `json:"mins"`
+	Mins              int     `json:"mins,string"`
 	AltTitle          string  `json:"alt title"`
 	MubiLink          string  `json:"MUBI link"`
 	MubiRating        float64 `json:"MUBI rating,string"`
@@ -81,6 +81,13 @@ func SortByImdb(movies []Data) {
 func SortByMubi(movies []Data) {
 	sort.Slice(movies, func(i, j int) bool {
 		return movies[i].MubiRating > movies[j].MubiRating
+	})
+}
+
+// SortByMins sorts slice of movies by duration
+func SortByMins(movies []Data) {
+	sort.Slice(movies, func(i, j int) bool {
+		return movies[i].Mins > movies[j].Mins
 	})
 }
 
