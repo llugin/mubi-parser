@@ -2,6 +2,7 @@ package movie
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/fatih/color"
 	"io/ioutil"
 	"log"
@@ -119,6 +120,16 @@ func ReadFromCached() ([]Data, error) {
 		return movies, err
 	}
 	return movies, nil
+}
+
+// FindByDay return movie based by day
+func FindByDay(day int, movies []Data) (Data, error) {
+	for _, m := range movies {
+		if m.DaysToWatch == day {
+			return m, nil
+		}
+	}
+	return Data{}, fmt.Errorf("Movie not found")
 }
 
 // PrintFormatted pretty-prints collected data

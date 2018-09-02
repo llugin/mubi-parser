@@ -6,6 +6,9 @@ import (
 	"github.com/llugin/mubi-parser/pkg/movie"
 	"github.com/llugin/mubi-parser/pkg/parser"
 	"log"
+	"os/exec"
+	"runtime"
+	"strconv"
 	"time"
 )
 
@@ -43,6 +46,7 @@ func main() {
 	flagFromFile := flag.Bool("cached", false, "Read only data from mubi.json file - no web connection are made")
 	flagNoColor := flag.Bool("no-color", false, "Disable color output")
 	flagRefresh := flag.Bool("refresh", false, "Refresh all data, not only new movies")
+	flagWatch := flag.Bool("watch", false, "Watch picked movie identified by 'Days' value")
 
 	sv := sortValue{movie.SortByDays}
 	flag.Var(&sv, "sort", "Sort by: [mubi|imdb|days|mins], default: days")
@@ -66,9 +70,36 @@ func main() {
 	sv.sortingFunc(movies)
 	movie.PrintFormatted(movies, *flagNoColor)
 
-	err = movie.WriteToCache(movies)
-	if err != nil {
+	if err = movie.WriteToCache(movies); err != nil {
 		log.Fatal(err)
 	}
+
 	fmt.Printf("Total time: %0.f s\n", time.Since(start).Seconds())
+
+	if *flagWatch {
+		if err := watch(movies); err != nil {
+			log.Fatal(err)
+		}
+	}
+}
+
+func watch(movies []movie.Data) error {
+	if runtime.GOOS != "darwin" {
+		return fmt.Errorf("Command not supported on this OS")
+	}
+
+	fmt.Print("Pick movie to watch (identified by 'Days'):")
+	var input string
+	fmt.Scanln(&input)
+	day, err := strconv.Atoi(input)
+	if err != nil {
+		return err
+	}
+
+	m, err := movie.FindByDay(day, movies)
+	if err != nil {
+		return err
+	}
+
+	return exec.Command("open", m.MubiLink).Run()
 }

@@ -48,7 +48,6 @@ func ReceiveMoviesWithBasicData() (<-chan movie.Data, error) {
 				fmt.Println(err)
 			} else {
 				movie.DaysToWatch = daysToWatch
-
 				moviesChan <- movie
 			}
 			daysToWatch--
@@ -65,8 +64,7 @@ func ReceiveMoviesDetails(in <-chan movie.Data) <-chan movie.Data {
 		for md := range in {
 			time.Sleep(time.Second * 3)
 
-			url := baseURL + md.MubiLink
-			resp, err := http.Get(url)
+			resp, err := http.Get(md.MubiLink)
 			if err != nil {
 				out <- md
 				continue
@@ -116,7 +114,7 @@ func queryBasicData(s *goquery.Selection) (movie.Data, error) {
 	}
 
 	link, exists := s.Find(selLink).Attr("href")
-	md.MubiLink = link
+	md.MubiLink = baseURL + link
 	if !exists {
 		err = fmt.Errorf("%v: link for movie details could not be found", md.Title)
 	}
