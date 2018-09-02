@@ -92,6 +92,12 @@ func SortByMins(movies []Data) {
 	})
 }
 
+// SortByYear sorts slice of movies by year
+func SortByYear(movies []Data) {
+	sort.Slice(movies, func(i, j int) bool {
+		return movies[i].Year > movies[j].Year
+	})
+}
 // WriteToCache writes collected data to cache file as json
 func WriteToCache(movies []Data) error {
 	if cacheErr != nil {
