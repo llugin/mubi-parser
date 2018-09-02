@@ -113,13 +113,37 @@ func PrintFormatted(movies []Data, noColor bool) {
 	colors[0].Fprintln(w, strings.Repeat("\t", columnsNo))
 
 	var c *color.Color
+	var sb strings.Builder
+	sb.WriteString(strings.Repeat("%v\t", columnsNo))
+	sb.WriteString("%v\n")
 	for i, m := range movies {
 		c = colors[i%2]
-		c.Fprintf(w, "%v\t%v\t%v (%v)\t%v (%v)\t%v\t%v\t%v\t%v\n",
-			m.Title, m.Director, m.MubiRating, m.MubiRatingsNumber,
-			m.ImdbRating, m.ImdbRatingsNumber, m.Mins, m.Year, m.Country, m.Genre)
+		c.Fprintf(w, sb.String(),
+			m.Title, m.Director, m.mubiRatingRepr(),
+			m.imdbRatingRepr(), m.Mins, m.Year, m.Country, m.Genre)
 	}
 	colors[0].Fprintln(w, strings.Repeat("\t", columnsNo))
 
 	w.Flush()
+}
+
+func (d *Data) mubiRatingRepr() string {
+	var sb strings.Builder
+	sb.WriteString(d.MubiRating)
+	sb.WriteString(" (")
+	sb.WriteString(d.MubiRatingsNumber)
+	sb.WriteString(")")
+	return sb.String()
+}
+
+func (d *Data) imdbRatingRepr() string {
+	if d.ImdbRating == "" || d.ImdbRating == "N/A" {
+		return ""
+	}
+	var sb strings.Builder
+	sb.WriteString(d.ImdbRating)
+	sb.WriteString(" (")
+	sb.WriteString(d.ImdbRatingsNumber)
+	sb.WriteString(")")
+	return sb.String()
 }

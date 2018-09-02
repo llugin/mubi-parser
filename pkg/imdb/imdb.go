@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"github.com/llugin/mubi-parser/pkg/movie"
 	"github.com/llugin/mubi-parser/pkg/mubi"
+	"golang.org/x/text/transform"
+	"golang.org/x/text/unicode/norm"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -12,6 +14,7 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	"unicode"
 )
 
 const (
@@ -79,6 +82,10 @@ func obtainMovieRating(m *movie.Data) {
 	if ar, err = getAPIResp(m.Title, m.Director, m.Year+1); err == nil {
 		goto Found
 	}
+	// Try with normalized director name
+	if ar, err = getAPIResp(m.Title, normalizeName(m.Director), m.Year); err == nil {
+		goto Found
+	}
 
 Found:
 	m.ImdbRating = ar.ImdbRating
@@ -89,9 +96,6 @@ func getAPIResp(title, director string, year int) (apiResp, error) {
 	APICount++
 	var ar apiResp
 	var err error
-
-	// release dates according to IMDB and MUBI can differ, therefore
-	// query is made with 1 year approximation
 
 	url := fmt.Sprintf(urlFormat, strings.Replace(title, " ", "+", -1), year, key)
 	resp, err := http.Get(url)
@@ -107,9 +111,6 @@ func getAPIResp(title, director string, year int) (apiResp, error) {
 	err = json.Unmarshal(body, &ar)
 	if err != nil && ar.Response != "True" {
 		err = fmt.Errorf(ar.Error)
-	}
-	if ar.Director != director {
-		err = fmt.Errorf("Wrong director")
 	}
 	return ar, err
 }
@@ -127,5 +128,16 @@ func getKey() (string, error) {
 		return key, err
 	}
 	return strings.TrimSpace(string(out)), nil
+}
 
+func normalizeName(in string) string {
+	in = strings.Replace(in, "ł", "l", -1)
+	in = strings.Replace(in, "Ł", "L", -1)
+	t := transform.Chain(norm.NFD, transform.RemoveFunc(isMn), norm.NFC)
+	result, _, _ := transform.String(t, in)
+	return result
+}
+
+func isMn(r rune) bool {
+	return unicode.Is(unicode.Mn, r)
 }
