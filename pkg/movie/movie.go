@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"text/tabwriter"
 )
@@ -21,19 +22,29 @@ var (
 
 // Data represent movie data collected by parser
 type Data struct {
-	Title             string `json:"title"`
-	Director          string `json:"director"`
-	Country           string `json:"country"`
-	Year              int    `json:"year,string"`
-	Genre             string `json:"genre"`
-	Mins              string `json:"mins"`
-	AltTitle          string `json:"alt title"`
-	MubiLink          string `json:"MUBI link"`
-	MubiRating        string `json:"MUBI rating"`
-	MubiRatingsNumber string `json:"MUBI ratings num"`
-	ImdbRating        string `json:"IMDB rating"`
-	ImdbRatingsNumber string `json:"IMDB ratings num"`
-	DaysToWatch       int    `json:"days,string"`
+	Title             string  `json:"title"`
+	Director          string  `json:"director"`
+	Country           string  `json:"country"`
+	Year              int     `json:"year,string"`
+	Genre             string  `json:"genre"`
+	Mins              string  `json:"mins"`
+	AltTitle          string  `json:"alt title"`
+	MubiLink          string  `json:"MUBI link"`
+	MubiRating        float64 `json:"MUBI rating,string"`
+	MubiRatingsNumber string  `json:"MUBI ratings num"`
+	ImdbRating        float64 `json:"IMDB rating,string"`
+	ImdbRatingsNumber string  `json:"IMDB ratings num"`
+	DaysToWatch       int     `json:"days,string"`
+}
+
+func init() {
+	log.SetFlags(log.Lshortfile)
+
+	ex, err := os.Executable()
+	if err != nil {
+		log.Fatal(err)
+	}
+	cacheFilePath = filepath.Join(filepath.Dir(ex), cacheFileName)
 }
 
 // AbbrevCountry abbreviates names of selected countries
@@ -52,20 +63,24 @@ func (d *Data) AbbrevCountry() {
 	}
 }
 
-func init() {
-	log.SetFlags(log.Lshortfile)
-
-	ex, err := os.Executable()
-	if err != nil {
-		log.Fatal(err)
-	}
-	cacheFilePath = filepath.Join(filepath.Dir(ex), cacheFileName)
-}
-
-// Sort sorts slice of movies by days to watch
-func Sort(movies []Data) {
+// SortByDays sorts slice of movies by days to watch
+func SortByDays(movies []Data) {
 	sort.Slice(movies, func(i, j int) bool {
 		return movies[i].DaysToWatch > movies[j].DaysToWatch
+	})
+}
+
+// SortByImdb sorts slice of movies by IMDB rating
+func SortByImdb(movies []Data) {
+	sort.Slice(movies, func(i, j int) bool {
+		return movies[i].ImdbRating > movies[j].ImdbRating
+	})
+}
+
+// SortByMubi sorts slice of movies by MUBI rating
+func SortByMubi(movies []Data) {
+	sort.Slice(movies, func(i, j int) bool {
+		return movies[i].MubiRating > movies[j].MubiRating
 	})
 }
 
@@ -102,14 +117,14 @@ func ReadFromCached() ([]Data, error) {
 // PrintFormatted pretty-prints collected data
 func PrintFormatted(movies []Data, noColor bool) {
 	color.NoColor = noColor
-	columnsNo := 7
+	columnsNo := 8
 
 	w := new(tabwriter.Writer)
 	w.Init(os.Stdout, 0, 8, 4, ' ', 0)
 	colors := []*color.Color{color.New(color.FgWhite), color.New(color.FgGreen)}
 
 	colors[0].Fprintln(w, strings.Repeat("\t", columnsNo))
-	colors[0].Fprintln(w, "Title\tDirector\tMUBI\tIMDB\tMins\tYear\tCountry\tGenre")
+	colors[0].Fprintln(w, "Days\tTitle\tDirector\tMUBI\tIMDB\tMins\tYear\tCountry\tGenre")
 	colors[0].Fprintln(w, strings.Repeat("\t", columnsNo))
 
 	var c *color.Color
@@ -119,7 +134,7 @@ func PrintFormatted(movies []Data, noColor bool) {
 	for i, m := range movies {
 		c = colors[i%2]
 		c.Fprintf(w, sb.String(),
-			m.Title, m.Director, m.mubiRatingRepr(),
+			m.DaysToWatch, m.Title, m.Director, m.mubiRatingRepr(),
 			m.imdbRatingRepr(), m.Mins, m.Year, m.Country, m.Genre)
 	}
 	colors[0].Fprintln(w, strings.Repeat("\t", columnsNo))
@@ -129,7 +144,7 @@ func PrintFormatted(movies []Data, noColor bool) {
 
 func (d *Data) mubiRatingRepr() string {
 	var sb strings.Builder
-	sb.WriteString(d.MubiRating)
+	sb.WriteString(strconv.FormatFloat(d.MubiRating, 'f', 1, 32))
 	sb.WriteString(" (")
 	sb.WriteString(d.MubiRatingsNumber)
 	sb.WriteString(")")
@@ -137,11 +152,11 @@ func (d *Data) mubiRatingRepr() string {
 }
 
 func (d *Data) imdbRatingRepr() string {
-	if d.ImdbRating == "" || d.ImdbRating == "N/A" {
+	if d.ImdbRating == 0.0 {
 		return ""
 	}
 	var sb strings.Builder
-	sb.WriteString(d.ImdbRating)
+	sb.WriteString(strconv.FormatFloat(d.ImdbRating, 'f', 1, 32))
 	sb.WriteString(" (")
 	sb.WriteString(d.ImdbRatingsNumber)
 	sb.WriteString(")")

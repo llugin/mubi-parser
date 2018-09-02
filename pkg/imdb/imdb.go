@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 	"unicode"
@@ -88,7 +89,12 @@ func obtainMovieRating(m *movie.Data) {
 	}
 
 Found:
-	m.ImdbRating = ar.ImdbRating
+	if f, err := strconv.ParseFloat(ar.ImdbRating, 32); err == nil {
+		m.ImdbRating = f
+	} else {
+		m.ImdbRating = 0.0
+	}
+
 	m.ImdbRatingsNumber = ar.ImdbVotes
 }
 

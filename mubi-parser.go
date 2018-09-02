@@ -9,12 +9,40 @@ import (
 	"time"
 )
 
+type sortValue struct {
+	sortingFunc func([]movie.Data)
+}
+
+func (s *sortValue) String() string {
+	return ""
+}
+
+func (s *sortValue) Set(val string) error {
+	switch val {
+	case "days":
+		s.sortingFunc = movie.SortByDays
+		return nil
+	case "mubi":
+		s.sortingFunc = movie.SortByMubi
+		return nil
+	case "imdb":
+		s.sortingFunc = movie.SortByImdb
+		return nil
+	default:
+		return fmt.Errorf("invalid sort value. Use [mubi|imdb|days]")
+	}
+}
+
 func main() {
+
 	log.SetFlags(log.Lshortfile)
 
 	flagFromFile := flag.Bool("cached", false, "Read only data from mubi.json file - no web connection are made")
 	flagNoColor := flag.Bool("no-color", false, "Disable color output")
 	flagRefresh := flag.Bool("refresh", false, "Refresh all data, not only new movies")
+
+	sv := sortValue{movie.SortByDays}
+	flag.Var(&sv, "sort", "Sort by: [mubi|imdb|days], default: days")
 	flag.Parse()
 
 	var movies []movie.Data
@@ -32,7 +60,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	movie.Sort(movies)
+	sv.sortingFunc(movies)
 	movie.PrintFormatted(movies, *flagNoColor)
 
 	err = movie.WriteToCache(movies)

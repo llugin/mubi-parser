@@ -78,8 +78,12 @@ func ReceiveMoviesDetails(in <-chan movie.Data) <-chan movie.Data {
 				out <- md
 				continue
 			}
-
-			md.MubiRating = strings.TrimSpace(document.Find(selRating).Text())
+			ratingStr := strings.TrimSpace(document.Find(selRating).Text())
+			if f, err := strconv.ParseFloat(ratingStr, 32); err == nil {
+				md.MubiRating = f
+			} else {
+				md.MubiRating = 0.0
+			}
 			md.Genre = strings.TrimSpace(document.Find(selGenre).Text())
 			md.AltTitle = strings.TrimSpace(document.Find(selAltTitle).Text())
 			md.Mins = strings.TrimSpace(document.Find(selMins).Text())
