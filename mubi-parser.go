@@ -54,7 +54,13 @@ func main() {
 }
 
 func watch(movies []movie.Data) error {
-	if runtime.GOOS != "darwin" {
+	var cmd string
+	switch runtime.GOOS {
+	case "darwin":
+		cmd = "open"
+	case "linux":
+		cmd = "xdg-open"
+	default:
 		return fmt.Errorf("Command not supported on this OS")
 	}
 
@@ -71,7 +77,7 @@ func watch(movies []movie.Data) error {
 		return err
 	}
 
-	return exec.Command("open", m.MubiLink).Run()
+	return exec.Command(cmd, m.MubiLink).Run()
 }
 
 type sortValue struct {
