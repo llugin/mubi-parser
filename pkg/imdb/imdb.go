@@ -47,19 +47,25 @@ func init() {
 	}
 }
 
-//GetRatings get movie ratings of imdb movies
-func GetRatings(in <-chan movie.Data) <-chan movie.Data {
+//SendRatings get movie ratings of imdb movies
+func SendRatings(done <-chan struct{}, in <-chan movie.Data) <-chan movie.Data {
 	out := make(chan movie.Data, mubi.MaxMovies)
+
 	go func() {
+		defer close(out)
 		for m := range in {
 			if keyError == nil {
 				time.Sleep(time.Millisecond * 200)
 				obtainMovieRating(&m)
 			}
-			out <- m
+			select {
+			case out <- m:
+			case <-done:
+				return
+			}
 		}
-		close(out)
 	}()
+
 	return out
 }
 

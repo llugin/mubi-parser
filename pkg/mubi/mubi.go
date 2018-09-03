@@ -29,18 +29,18 @@ const (
 	selMins           = "[itemprop=duration]"
 )
 
-// ReceiveMoviesWithBasicData returns a buffered channel with
+// SendMoviesWithBasicData returns a buffered channel with
 // movies with basic data available to collect from mubi main page
-func ReceiveMoviesWithBasicData() (<-chan movie.Data, error) {
+func SendMoviesWithBasicData(done <-chan struct{}) (<-chan movie.Data, error) {
 	moviesChan := make(chan movie.Data, MaxMovies)
 
 	s, err := getSelectionFromWebPage()
 	if err != nil {
-		close(moviesChan)
 		return moviesChan, err
 	}
 
 	go func() {
+		defer close(moviesChan)
 		daysToWatch := MaxMovies
 		s.Each(func(i int, s *goquery.Selection) {
 			movie, err := queryBasicData(s)
@@ -48,54 +48,70 @@ func ReceiveMoviesWithBasicData() (<-chan movie.Data, error) {
 				fmt.Println(err)
 			} else {
 				movie.DaysToWatch = daysToWatch
-				moviesChan <- movie
+				daysToWatch--
+				select {
+				case moviesChan <- movie:
+				case <-done:
+					return
+				}
 			}
-			daysToWatch--
 		})
-		close(moviesChan)
 	}()
 	return moviesChan, nil
 }
 
-//ReceiveMoviesDetails returns channel with movies with detailed data
-func ReceiveMoviesDetails(in <-chan movie.Data) <-chan movie.Data {
+//SendMoviesDetails returns channel with movies with detailed data
+func SendMoviesDetails(done <-chan struct{}, in <-chan movie.Data) <-chan movie.Data {
+	var doc *goquery.Document
+	var resp *http.Response
+	var err error
+
 	out := make(chan movie.Data, MaxMovies)
+
 	go func() {
+		defer close(out)
 		for md := range in {
 			time.Sleep(time.Second * 3)
 
-			resp, err := http.Get(md.MubiLink)
+			resp, err = http.Get(md.MubiLink)
 			if err != nil {
-				out <- md
-				continue
+				goto Send
 			}
 			defer resp.Body.Close()
 
-			document, err := goquery.NewDocumentFromReader(resp.Body)
+			doc, err = goquery.NewDocumentFromReader(resp.Body)
 			if err != nil {
-				out <- md
-				continue
+				goto Send
 			}
-			ratingStr := strings.TrimSpace(document.Find(selRating).Text())
-			if f, err := strconv.ParseFloat(ratingStr, 32); err == nil {
-				md.MubiRating = f
-			} else {
-				md.MubiRating = 0.0
-			}
-			md.Genre = strings.TrimSpace(document.Find(selGenre).Text())
-			md.AltTitle = strings.TrimSpace(document.Find(selAltTitle).Text())
-			minsStr := strings.TrimSpace(document.Find(selMins).Text())
-			if i, err := strconv.Atoi(minsStr); err == nil {
-				md.Mins = i
-			}
-			raw := document.Find(selRatingsNumber).Text()
-			md.MubiRatingsNumber = strings.TrimSpace(strings.Trim(raw, "Ratings\n"))
+			acquireDetailsFromDocument(&md, doc)
 
-			out <- md
+		Send:
+			select {
+			case out <- md:
+			case <-done:
+				return
+			}
 		}
-		close(out)
 	}()
 	return out
+}
+
+func acquireDetailsFromDocument(m *movie.Data, doc *goquery.Document) {
+	ratingStr := strings.TrimSpace(doc.Find(selRating).Text())
+	if f, err := strconv.ParseFloat(ratingStr, 32); err == nil {
+		m.MubiRating = f
+	} else {
+		m.MubiRating = 0.0
+	}
+	m.Genre = strings.TrimSpace(doc.Find(selGenre).Text())
+	m.AltTitle = strings.TrimSpace(doc.Find(selAltTitle).Text())
+	minsStr := strings.TrimSpace(doc.Find(selMins).Text())
+	if i, err := strconv.Atoi(minsStr); err == nil {
+		m.Mins = i
+	}
+	raw := doc.Find(selRatingsNumber).Text()
+	m.MubiRatingsNumber = strings.TrimSpace(strings.Trim(raw, "Ratings\n"))
+
 }
 
 func queryBasicData(s *goquery.Selection) (movie.Data, error) {

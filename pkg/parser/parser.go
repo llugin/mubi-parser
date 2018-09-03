@@ -12,48 +12,58 @@ import (
 func GetMovies(refresh bool) ([]movie.Data, error) {
 	var movies []movie.Data
 
-	out, err := mubi.ReceiveMoviesWithBasicData()
+	done := make(chan struct{})
+	defer close(done)
+
+	out, err := mubi.SendMoviesWithBasicData(done)
 	if err != nil {
 		return movies, err
 	}
 
-	cached := make(chan movie.Data, mubi.MaxMovies)
-	if !refresh {
-		out, cached = channelCachedDetails(out)
-	} else {
-		close(cached)
-	}
-	out = mubi.ReceiveMoviesDetails(out)
-	out = imdb.GetRatings(out)
+	out, cached := sendCachedDetails(refresh, done, out)
+	out = mubi.SendMoviesDetails(done, out)
+	out = imdb.SendRatings(done, out)
 
-	for m := range merge(out, cached) {
+	for m := range merge(done, out, cached) {
 		movies = append(movies, m)
 	}
 	log.Printf("OMDB API called %v times\n", imdb.APICount)
 	return movies, nil
 }
 
-func channelCachedDetails(in <-chan movie.Data) (<-chan movie.Data, chan movie.Data) {
-	vals, err := movie.ReadFromCached()
-
+func sendCachedDetails(refresh bool, done <-chan struct{}, in <-chan movie.Data) (<-chan movie.Data, chan movie.Data) {
 	cached := make(chan movie.Data, mubi.MaxMovies)
+	if refresh {
+		// do nothing
+		close(cached)
+		return in, cached
+	}
+
+	vals, err := movie.ReadFromCached()
 	if err != nil {
 		log.Printf("%v. Could not read cached data, reading from web", err)
-		close(cached)
 		return in, cached
 	}
 
 	new := make(chan movie.Data, mubi.MaxMovies)
 	go func() {
+		defer close(new)
+		defer close(cached)
 		for md := range in {
 			if val, found := find(md, vals); found == true {
-				cached <- val
+				select {
+				case cached <- val:
+				case <-done:
+					return
+				}
 			} else {
-				new <- md
+				select {
+				case new <- md:
+				case <-done:
+					return
+				}
 			}
 		}
-		close(cached)
-		close(new)
 	}()
 	return new, cached
 }
@@ -69,15 +79,19 @@ func find(searched movie.Data, in []movie.Data) (movie.Data, bool) {
 }
 
 // taken from https://blog.golang.org/pipelines
-func merge(cs ...<-chan movie.Data) <-chan movie.Data {
+func merge(done <-chan struct{}, cs ...<-chan movie.Data) <-chan movie.Data {
 	var wg sync.WaitGroup
 	out := make(chan movie.Data)
 
 	output := func(c <-chan movie.Data) {
+		defer wg.Done()
 		for n := range c {
-			out <- n
+			select {
+			case out <- n:
+			case <-done:
+				return
+			}
 		}
-		wg.Done()
 	}
 	wg.Add(len(cs))
 	for _, c := range cs {
