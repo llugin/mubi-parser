@@ -51,6 +51,8 @@ func sendCachedDetails(refresh bool, done <-chan struct{}, in <-chan movie.Data)
 		defer close(cached)
 		for md := range in {
 			if val, found := find(md, vals); found == true {
+				// Update days to watch value
+				val.DaysToWatch = md.DaysToWatch
 				select {
 				case cached <- val:
 				case <-done:

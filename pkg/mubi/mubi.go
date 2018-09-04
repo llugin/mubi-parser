@@ -19,11 +19,12 @@ const (
 	// mubi goquery selection queries
 	selMovie          = ".full-width-tile--now-showing, .showing-page-hero-tile"
 	selTitle          = ".full-width-tile__title, .showing-page-hero-tile__title"
+	selLink           = ".full-width-tile__link, .showing-page-hero-tile__link"
+	selDaysToWatch    = ".showing-page-hero-tile__fotd-label, .full-width-tile__days-left"
 	selDirector       = "[itemprop=name]"
 	selCountryAndYear = ".now-showing-tile-director-year__year-country"
 	selGenre          = ".film-show__genres"
 	selAltTitle       = ".film-show__titles__title-alt"
-	selLink           = ".full-width-tile__link, .showing-page-hero-tile__link"
 	selRating         = ".average-rating__overall"
 	selRatingsNumber  = ".average-rating__total"
 	selMins           = "[itemprop=duration]"
@@ -41,14 +42,11 @@ func SendMoviesWithBasicData(done <-chan struct{}) (<-chan movie.Data, error) {
 
 	go func() {
 		defer close(moviesChan)
-		daysToWatch := MaxMovies
 		s.Each(func(i int, s *goquery.Selection) {
 			movie, err := queryBasicData(s)
 			if err != nil {
 				fmt.Println(err)
 			} else {
-				movie.DaysToWatch = daysToWatch
-				daysToWatch--
 				select {
 				case moviesChan <- movie:
 				case <-done:
@@ -129,12 +127,28 @@ func queryBasicData(s *goquery.Selection) (movie.Data, error) {
 		md.Year = year
 	}
 
+	daysToWatchStr := s.Find(selDaysToWatch).Text()
+	if daysToWatch, err := parseDaysToWatch(daysToWatchStr); err == nil {
+		md.DaysToWatch = daysToWatch
+	}
+
 	link, exists := s.Find(selLink).Attr("href")
 	md.MubiLink = baseURL + link
 	if !exists {
 		err = fmt.Errorf("%v: link for movie details could not be found", md.Title)
 	}
 	return md, err
+}
+
+func parseDaysToWatch(text string) (int, error) {
+	text = strings.TrimSpace(text)
+	if text == "Film of the day" {
+		return MaxMovies, nil
+	} else if text == "Expiring at midnight" {
+		return 1, nil
+	} else {
+		return strconv.Atoi(strings.Split(text, " ")[0])
+	}
 }
 
 func getSelectionFromWebPage() (*goquery.Selection, error) {
