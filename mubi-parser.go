@@ -3,13 +3,14 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/llugin/mubi-parser/pkg/movie"
-	"github.com/llugin/mubi-parser/pkg/parser"
 	"log"
 	"os/exec"
 	"runtime"
 	"strconv"
 	"time"
+
+	"github.com/llugin/mubi-parser/pkg/movie"
+	"github.com/llugin/mubi-parser/pkg/parser"
 )
 
 func main() {
@@ -19,6 +20,7 @@ func main() {
 	flagNoColor := flag.Bool("no-color", false, "Disable color output")
 	flagRefresh := flag.Bool("refresh", false, "Refresh all data, not only new movies")
 	flagWatch := flag.Bool("watch", false, "Watch picked movie identified by 'Days' value")
+	flagMaxLen := flag.Int("max-len", 0, "Max output table column length. Value equal or less than zero stands for unlimited length.")
 	sv := sortValue{movie.SortByDays, false}
 	flag.Var(&sv, "sort", "Sort by: [mubi|imdb|days|mins|year], default: days. Add '-' at argument end to reverse order")
 
@@ -38,7 +40,7 @@ func main() {
 	}
 
 	sv.sort(movies)
-	movie.PrintFormatted(movies, *flagNoColor)
+	movie.PrintFormatted(movies, *flagNoColor, *flagMaxLen)
 
 	if err = movie.WriteToCache(movies); err != nil {
 		log.Fatal(err)

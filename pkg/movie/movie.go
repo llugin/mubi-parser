@@ -8,10 +8,12 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"strconv"
 	"strings"
 	"text/tabwriter"
+	"unicode/utf8"
 )
 
 const cacheFileName = "mubi.json"
@@ -98,6 +100,7 @@ func SortByYear(movies []Data) {
 		return movies[i].Year > movies[j].Year
 	})
 }
+
 // WriteToCache writes collected data to cache file as json
 func WriteToCache(movies []Data) error {
 	if cacheErr != nil {
@@ -139,7 +142,7 @@ func FindByDay(day int, movies []Data) (Data, error) {
 }
 
 // PrintFormatted pretty-prints collected data
-func PrintFormatted(movies []Data, noColor bool) {
+func PrintFormatted(movies []Data, noColor bool, maxLen int) {
 	color.NoColor = noColor
 	columnsNo := 8
 
@@ -156,14 +159,49 @@ func PrintFormatted(movies []Data, noColor bool) {
 	sb.WriteString(strings.Repeat("%v\t", columnsNo))
 	sb.WriteString("%v\n")
 	for i, m := range movies {
+		mc := truncate(m, maxLen)
 		c = colors[i%2]
 		c.Fprintf(w, sb.String(),
-			m.DaysToWatch, m.Title, m.Director, m.mubiRatingRepr(),
-			m.imdbRatingRepr(), m.Mins, m.Year, m.Country, m.Genre)
+			mc.DaysToWatch, mc.Title, mc.Director, mc.mubiRatingRepr(),
+			mc.imdbRatingRepr(), mc.Mins, mc.Year, mc.Country, mc.Genre)
 	}
 	colors[0].Fprintln(w, strings.Repeat("\t", columnsNo))
 
 	w.Flush()
+}
+
+func truncate(m Data, maxLen int) Data {
+	if maxLen <= 0 {
+		return m
+	}
+
+	truncator := func(s string) string {
+		if utf8.RuneCountInString(s) <= maxLen {
+			return s
+		}
+		runes := 0
+		out := s
+		for i := range s {
+			if runes >= maxLen {
+				out = s[:i]
+				break
+			}
+			runes++
+		}
+		return out
+	}
+
+	trunc := m
+	r := reflect.ValueOf(&trunc).Elem()
+	for i := 0; i < r.NumField(); i++ {
+		f := r.Field(i)
+		if f.Kind() != reflect.String {
+			continue
+		}
+		f.SetString(truncator(f.String()))
+	}
+
+	return trunc
 }
 
 func (d *Data) mubiRatingRepr() string {
