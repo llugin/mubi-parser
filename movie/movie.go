@@ -7,8 +7,10 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -18,10 +20,7 @@ import (
 
 const cacheFileName = "mubi.json"
 
-var (
-	cacheFilePath string
-	cacheErr      error
-)
+var cacheFilePath string
 
 // Data represent movie data collected by parser
 type Data struct {
@@ -66,6 +65,21 @@ func (d *Data) AbbrevCountry() {
 	}
 }
 
+// Watch opens movie page in default browser
+func (d *Data) Watch() error {
+	var cmd string
+	switch runtime.GOOS {
+	case "darwin":
+		cmd = "open"
+	case "linux":
+		cmd = "xdg-open"
+	default:
+		return fmt.Errorf("Watch function not supported on this OS")
+	}
+
+	return exec.Command(cmd, d.MubiLink).Run()
+}
+
 // SortByDays sorts slice of movies by days to watch
 func SortByDays(movies []Data) {
 	sort.Slice(movies, func(i, j int) bool {
@@ -103,9 +117,6 @@ func SortByYear(movies []Data) {
 
 // WriteToCache writes collected data to cache file as json
 func WriteToCache(movies []Data) error {
-	if cacheErr != nil {
-		return cacheErr
-	}
 	out, err := json.MarshalIndent(movies, "", " ")
 	if err != nil {
 		return err

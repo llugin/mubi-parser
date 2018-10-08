@@ -3,8 +3,9 @@ package imdb
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/llugin/mubi-parser/pkg/movie"
-	"github.com/llugin/mubi-parser/pkg/mubi"
+	"github.com/llugin/mubi-parser/debuglog"
+	"github.com/llugin/mubi-parser/movie"
+	"github.com/llugin/mubi-parser/mubi"
 	"golang.org/x/text/transform"
 	"golang.org/x/text/unicode/norm"
 	"io/ioutil"
@@ -29,6 +30,7 @@ var (
 	keyFilePath string
 	key         string
 	keyError    error
+	debug       = debuglog.GetLogger()
 )
 
 type apiResp struct {
@@ -43,7 +45,7 @@ func init() {
 	log.SetFlags(log.Lshortfile)
 	key, keyError = getKey()
 	if keyError != nil {
-		log.Printf("%v. Could not get OMDB API key. Skipping IMDB data acquirement.", keyError)
+		debug.Printf("%v. Could not get OMDB API key. Skipping IMDB data acquirement.", keyError)
 	}
 }
 
@@ -80,24 +82,36 @@ func obtainMovieRating(m *movie.Data) {
 	if m.AltTitle != "" {
 		if ar, err = getAPIResp(m.AltTitle, m.Director, m.Year); err == nil {
 			goto Found
+		} else {
+			debug.Println(err)
 		}
 	}
+
 	// Try with approximate years (+1/-1 year)
 	if ar, err = getAPIResp(m.Title, m.Director, m.Year-1); err == nil {
 		goto Found
+	} else {
+		debug.Println(err)
 	}
+
 	if ar, err = getAPIResp(m.Title, m.Director, m.Year+1); err == nil {
 		goto Found
+	} else {
+		debug.Println(err)
 	}
+
 	// Try with normalized director name
 	if ar, err = getAPIResp(m.Title, normalizeName(m.Director), m.Year); err == nil {
 		goto Found
+	} else {
+		debug.Println(err)
 	}
 
 Found:
 	if f, err := strconv.ParseFloat(ar.ImdbRating, 32); err == nil {
 		m.ImdbRating = f
 	} else {
+		debug.Println(err)
 		m.ImdbRating = 0.0
 	}
 

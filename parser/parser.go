@@ -1,12 +1,16 @@
 package parser
 
 import (
-	"github.com/llugin/mubi-parser/pkg/imdb"
-	"github.com/llugin/mubi-parser/pkg/movie"
-	"github.com/llugin/mubi-parser/pkg/mubi"
+	"fmt"
+	"github.com/llugin/mubi-parser/debuglog"
+	"github.com/llugin/mubi-parser/imdb"
+	"github.com/llugin/mubi-parser/movie"
+	"github.com/llugin/mubi-parser/mubi"
 	"log"
 	"sync"
 )
+
+var debug = debuglog.GetLogger()
 
 // GetMovies reads movie data from the web
 func GetMovies(refresh bool) ([]movie.Data, error) {
@@ -41,7 +45,8 @@ func sendCachedDetails(refresh bool, done <-chan struct{}, in <-chan movie.Data)
 
 	vals, err := movie.ReadFromCached()
 	if err != nil {
-		log.Printf("%v. Could not read cached data, reading from web", err)
+		fmt.Printf("%v. Could not read cached data, reading from web", err)
+		debug.Printf("%v. Could not read cached data, reading from web", err)
 		return in, cached
 	}
 
@@ -59,6 +64,7 @@ func sendCachedDetails(refresh bool, done <-chan struct{}, in <-chan movie.Data)
 					return
 				}
 			} else {
+				debug.Printf("Movie: %s not found in cached data\n", md.Title)
 				select {
 				case new <- md:
 				case <-done:
@@ -76,8 +82,7 @@ func find(searched movie.Data, in []movie.Data) (movie.Data, bool) {
 			return m, true
 		}
 	}
-	var empty movie.Data
-	return empty, false
+	return movie.Data{}, false
 }
 
 // taken from https://blog.golang.org/pipelines
