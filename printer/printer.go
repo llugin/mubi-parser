@@ -5,37 +5,37 @@ import (
 	"github.com/llugin/mubi-parser/movie"
 	"os"
 	"reflect"
-	"strconv"
 	"strings"
 	"text/tabwriter"
 	"unicode/utf8"
 )
 
+var columns = []columnRepr{daysRepr{}, titleRepr{}, directorRepr{},
+	mubiRepr{}, imdbRepr{}, minsRepr{}, yearRepr{}, countryRepr{}, genreRepr{}}
+
 // PrintTable pretty-prints collected data as a table
 func PrintTable(movies []movie.Data, noColor bool, maxLen int) {
 	color.NoColor = noColor
-	columnsNo := 8
+	tabsNo := len(columns) - 1
 
 	w := new(tabwriter.Writer)
 	w.Init(os.Stdout, 0, 8, 4, ' ', 0)
 	colors := []*color.Color{color.New(color.FgWhite), color.New(color.FgGreen)}
 
-	colors[0].Fprintln(w, strings.Repeat("\t", columnsNo))
-	colors[0].Fprintln(w, "Days\tTitle\tDirector\tMUBI\tIMDB\tMins\tYear\tCountry\tGenre")
-	colors[0].Fprintln(w, strings.Repeat("\t", columnsNo))
+	colors[0].Fprintln(w, strings.Repeat("\t", tabsNo))
+	colors[0].Fprintln(w, strings.Join(getHeaders(), "\t"))
+	colors[0].Fprintln(w, strings.Repeat("\t", tabsNo))
 
 	var c *color.Color
 	var sb strings.Builder
-	sb.WriteString(strings.Repeat("%v\t", columnsNo))
+	sb.WriteString(strings.Repeat("%v\t", tabsNo))
 	sb.WriteString("%v\n")
 	for i, m := range movies {
 		mc := truncate(m, maxLen)
 		c = colors[i%2]
-		c.Fprintf(w, sb.String(),
-			mc.DaysToWatch, mc.Title, mc.Director, mubiRatingRepr(&mc),
-			imdbRatingRepr(&mc), mc.Mins, mc.Year, mc.Country, mc.Genre)
+		c.Fprintf(w, sb.String(), getValues(&mc)...)
 	}
-	colors[0].Fprintln(w, strings.Repeat("\t", columnsNo))
+	colors[0].Fprintln(w, strings.Repeat("\t", tabsNo))
 
 	w.Flush()
 }
@@ -74,23 +74,18 @@ func truncate(m movie.Data, maxLen int) movie.Data {
 	return trunc
 }
 
-func mubiRatingRepr(d *movie.Data) string {
-	var sb strings.Builder
-	sb.WriteString(strconv.FormatFloat(d.MubiRating, 'f', 1, 32))
-	sb.WriteString(" (")
-	sb.WriteString(d.MubiRatingsNumber)
-	sb.WriteString(")")
-	return sb.String()
+func getValues(md *movie.Data) []interface{} {
+	values := []interface{}{}
+	for _, c := range columns {
+		values = append(values, c.Value(md))
+	}
+	return values
 }
 
-func imdbRatingRepr(d *movie.Data) string {
-	if d.ImdbRating == 0.0 {
-		return ""
+func getHeaders() []string {
+	headers := []string{}
+	for _, c := range columns {
+		headers = append(headers, c.Header())
 	}
-	var sb strings.Builder
-	sb.WriteString(strconv.FormatFloat(d.ImdbRating, 'f', 1, 32))
-	sb.WriteString(" (")
-	sb.WriteString(d.ImdbRatingsNumber)
-	sb.WriteString(")")
-	return sb.String()
+	return headers
 }
