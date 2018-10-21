@@ -8,6 +8,7 @@ import (
 
 	"github.com/llugin/mubi-parser/movie"
 	"github.com/llugin/mubi-parser/parser"
+	"github.com/llugin/mubi-parser/printer"
 )
 
 func main() {
@@ -44,7 +45,7 @@ func main() {
 		}
 	} else {
 		sv.sort(movies)
-		movie.PrintFormatted(movies, *flagNoColor, *flagMaxLen)
+		printer.PrintTable(movies, *flagNoColor, *flagMaxLen)
 
 		if err = movie.WriteToCache(movies); err != nil {
 			log.Fatal(err)
