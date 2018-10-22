@@ -6,30 +6,33 @@ import (
 	"strings"
 )
 
+var columns = []columnRepr{
+	days{}, title{}, director{}, mubi{}, imdb{}, mins{}, year{}, country{}, genre{}}
+
 type columnRepr interface {
 	Header() string
 	Value(*movie.Data) interface{}
 }
 
-type daysRepr struct{}
+type days struct{}
 
-func (d daysRepr) Header() string                   { return "Days" }
-func (d daysRepr) Value(md *movie.Data) interface{} { return md.DaysToWatch }
+func (d days) Header() string                   { return "Days" }
+func (d days) Value(md *movie.Data) interface{} { return md.DaysToWatch }
 
-type titleRepr struct{}
+type title struct{}
 
-func (t titleRepr) Header() string                   { return "Title" }
-func (t titleRepr) Value(md *movie.Data) interface{} { return md.Title }
+func (t title) Header() string                   { return "Title" }
+func (t title) Value(md *movie.Data) interface{} { return md.Title }
 
-type directorRepr struct{}
+type director struct{}
 
-func (d directorRepr) Header() string                   { return "Director" }
-func (d directorRepr) Value(md *movie.Data) interface{} { return md.Director }
+func (d director) Header() string                   { return "Director" }
+func (d director) Value(md *movie.Data) interface{} { return md.Director }
 
-type mubiRepr struct{}
+type mubi struct{}
 
-func (m mubiRepr) Header() string { return "MUBI" }
-func (m mubiRepr) Value(md *movie.Data) interface{} {
+func (m mubi) Header() string { return "MUBI" }
+func (m mubi) Value(md *movie.Data) interface{} {
 	var sb strings.Builder
 	sb.WriteString(strconv.FormatFloat(md.MubiRating, 'f', 1, 32))
 	sb.WriteString(" (")
@@ -38,10 +41,10 @@ func (m mubiRepr) Value(md *movie.Data) interface{} {
 	return sb.String()
 }
 
-type imdbRepr struct{}
+type imdb struct{}
 
-func (i imdbRepr) Header() string { return "IMDB" }
-func (i imdbRepr) Value(md *movie.Data) interface{} {
+func (i imdb) Header() string { return "IMDB" }
+func (i imdb) Value(md *movie.Data) interface{} {
 	if md.ImdbRating == 0.0 {
 		return ""
 	}
@@ -53,22 +56,22 @@ func (i imdbRepr) Value(md *movie.Data) interface{} {
 	return sb.String()
 }
 
-type minsRepr struct{}
+type mins struct{}
 
-func (m minsRepr) Header() string                   { return "Mins" }
-func (m minsRepr) Value(md *movie.Data) interface{} { return md.Mins }
+func (m mins) Header() string                   { return "Mins" }
+func (m mins) Value(md *movie.Data) interface{} { return md.Mins }
 
-type yearRepr struct{}
+type year struct{}
 
-func (y yearRepr) Header() string                   { return "Year" }
-func (y yearRepr) Value(md *movie.Data) interface{} { return md.Year }
+func (y year) Header() string                   { return "Year" }
+func (y year) Value(md *movie.Data) interface{} { return md.Year }
 
-type countryRepr struct{}
+type country struct{}
 
-func (c countryRepr) Header() string                   { return "Country" }
-func (c countryRepr) Value(md *movie.Data) interface{} { return md.Country }
+func (c country) Header() string                   { return "Country" }
+func (c country) Value(md *movie.Data) interface{} { return md.Country }
 
-type genreRepr struct{}
+type genre struct{}
 
-func (g genreRepr) Header() string                   { return "Genre" }
-func (g genreRepr) Value(md *movie.Data) interface{} { return md.Genre }
+func (g genre) Header() string                   { return "Genre" }
+func (g genre) Value(md *movie.Data) interface{} { return md.Genre }
