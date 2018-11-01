@@ -14,7 +14,8 @@ import (
 
 const cacheFileName = "mubi.json"
 
-var cacheFilePath string
+// CacheFilePath is a path mubi.json cache file
+var CacheFilePath string
 
 // Data represent movie data collected by parser
 type Data struct {
@@ -40,7 +41,7 @@ func init() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	cacheFilePath = filepath.Join(filepath.Dir(ex), cacheFileName)
+	CacheFilePath = filepath.Join(filepath.Dir(ex), cacheFileName)
 }
 
 // AbbrevCountry abbreviates names of selected countries
@@ -115,7 +116,7 @@ func WriteToCache(movies []Data) error {
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(cacheFilePath, out, 0666)
+	err = ioutil.WriteFile(CacheFilePath, out, 0666)
 	if err != nil {
 		return err
 	}
@@ -126,7 +127,7 @@ func WriteToCache(movies []Data) error {
 func ReadFromCached() ([]Data, error) {
 	var movies []Data
 
-	out, err := ioutil.ReadFile(cacheFilePath)
+	out, err := ioutil.ReadFile(CacheFilePath)
 	if err != nil {
 		return movies, err
 	}

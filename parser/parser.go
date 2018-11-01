@@ -1,7 +1,6 @@
 package parser
 
 import (
-	"fmt"
 	"github.com/llugin/mubi-parser/debuglog"
 	"github.com/llugin/mubi-parser/imdb"
 	"github.com/llugin/mubi-parser/movie"
@@ -45,7 +44,6 @@ func sendCachedDetails(refresh bool, done <-chan struct{}, in <-chan movie.Data)
 
 	vals, err := movie.ReadFromCached()
 	if err != nil {
-		fmt.Printf("%v. Could not read cached data, reading from web", err)
 		debug.Printf("%v. Could not read cached data, reading from web", err)
 		return in, cached
 	}

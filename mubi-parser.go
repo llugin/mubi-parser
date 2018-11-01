@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"os"
 	"time"
 
 	"github.com/llugin/mubi-parser/movie"
@@ -23,6 +24,12 @@ func main() {
 	flag.Var(&sv, "sort", "Sort by: [mubi|imdb|days|mins|year], default: days. Add '-' at argument end to reverse order")
 
 	flag.Parse()
+	if _, err := os.Stat(movie.CacheFilePath); os.IsNotExist(err) {
+		*flagRefresh = true
+		if *flagCached {
+			log.Fatalf("Cannot read cached data - file %s does not exist", movie.CacheFilePath)
+		}
+	}
 
 	start := time.Now()
 
