@@ -3,19 +3,22 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/llugin/mubi-parser/imdb"
+	"github.com/llugin/mubi-parser/movie"
+	"github.com/llugin/mubi-parser/mubi"
+	"github.com/llugin/mubi-parser/parser"
+	"github.com/llugin/mubi-parser/printer"
 	"log"
 	"os"
 	"time"
-
-	"github.com/llugin/mubi-parser/movie"
-	"github.com/llugin/mubi-parser/parser"
-	"github.com/llugin/mubi-parser/printer"
 )
 
 func main() {
 	log.SetFlags(log.Lshortfile)
 
 	flagCached := flag.Bool("cached", false, "Read only data from mubi.json file - no web connection are made")
+	flagMubiSleep := flag.Int("mubi-sleep", 3, "Sleep between mubi HTTP requests in seconds")
+	flagImdbSleep := flag.Int("imdb-sleep", 200, "Sleep between OMDB API calls in milliseconds")
 	flagNoColor := flag.Bool("no-color", false, "Disable color output")
 	flagRefresh := flag.Bool("refresh", false, "Refresh all data, not only new movies")
 	flagWatch := flag.Int("watch", -1, "Watch picked movie identified by 'Days' value")
@@ -24,6 +27,10 @@ func main() {
 	flag.Var(&sv, "sort", "Sort by: [mubi|imdb|days|mins|year], default: days. Add '-' at argument end to reverse order")
 
 	flag.Parse()
+
+	imdb.Sleep = *flagImdbSleep
+	mubi.Sleep = *flagMubiSleep
+
 	if _, err := os.Stat(movie.CacheFilePath); os.IsNotExist(err) {
 		*flagRefresh = true
 		if *flagCached {

@@ -31,6 +31,8 @@ var (
 	key         string
 	keyError    error
 	debug       = debuglog.GetLogger()
+	//Sleep - sleep time between API calls in miliseconds
+	Sleep = 200
 )
 
 type apiResp struct {
@@ -57,7 +59,7 @@ func SendRatings(done <-chan struct{}, in <-chan movie.Data) <-chan movie.Data {
 		defer close(out)
 		for m := range in {
 			if keyError == nil {
-				time.Sleep(time.Millisecond * 200)
+				time.Sleep(time.Duration(Sleep) * time.Millisecond)
 				obtainMovieRating(&m)
 			}
 			select {

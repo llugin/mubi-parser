@@ -33,6 +33,9 @@ const (
 
 var debug = debuglog.GetLogger()
 
+// Sleep - sleep between HTTP reqeuests to mubi site in seconds
+var Sleep = 3
+
 // SendMoviesWithBasicData returns a buffered channel with
 // movies with basic data available to collect from mubi main page
 func SendMoviesWithBasicData(done <-chan struct{}) (<-chan movie.Data, error) {
@@ -72,7 +75,7 @@ func SendMoviesDetails(done <-chan struct{}, in <-chan movie.Data) <-chan movie.
 	go func() {
 		defer close(out)
 		for md := range in {
-			time.Sleep(time.Second * 3)
+			time.Sleep(time.Duration(Sleep) * time.Second)
 
 			resp, err = http.Get(md.MubiLink)
 			if err != nil {
