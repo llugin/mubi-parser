@@ -12,10 +12,10 @@ import (
 	"sort"
 )
 
-const cacheFileName = "mubi.json"
+const jsonFileName = "mubi.json"
 
-// CacheFilePath is a path mubi.json cache file
-var CacheFilePath string
+// JSONFilePath is a path mubi.json json file
+var JSONFilePath string
 
 // Data represent movie data collected by parser
 type Data struct {
@@ -32,16 +32,25 @@ type Data struct {
 	ImdbRating        float64 `json:"IMDB rating,string"`
 	ImdbRatingsNumber string  `json:"IMDB ratings num"`
 	DaysToWatch       int     `json:"days,string"`
+	DateAppeared      string  `json:"appeared"`
 }
 
 func init() {
 	log.SetFlags(log.Lshortfile)
+}
 
-	ex, err := os.Executable()
+// SetJSONFilePath sets path to json file with stored movie data
+func SetJSONFilePath(path string) error {
+	abs, err := filepath.Abs(path)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
-	CacheFilePath = filepath.Join(filepath.Dir(ex), cacheFileName)
+	dir := filepath.Dir(abs)
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		return err
+	}
+	JSONFilePath = abs
+	return nil
 }
 
 // AbbrevCountry abbreviates names of selected countries
@@ -73,6 +82,51 @@ func (d *Data) Watch() error {
 	}
 
 	return exec.Command(cmd, d.MubiLink).Run()
+}
+
+// WriteToJSON writes collected data to json file as json
+func WriteToJSON(movies []Data) error {
+	out, err := json.MarshalIndent(movies, "", " ")
+	if err != nil {
+		return err
+	}
+
+	err = ioutil.WriteFile(JSONFilePath, out, 0666)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// ReadFromJSON reads json data from json file
+func ReadFromJSON() ([]Data, error) {
+	var movies []Data
+	fmt.Println(JSONFilePath)
+	out, err := ioutil.ReadFile(JSONFilePath)
+	if err != nil {
+		return movies, err
+	}
+	if err := json.Unmarshal(out, &movies); err != nil {
+		return movies, err
+	}
+	return movies, nil
+}
+
+// FindByDay return movie based by day
+func FindByDay(day int, movies []Data) (Data, error) {
+	for _, m := range movies {
+		if m.DaysToWatch == day {
+			return m, nil
+		}
+	}
+	return Data{}, fmt.Errorf("Movie not found")
+}
+
+// LastFromToday checks the current date, and date of newest movie appearance
+// from json - if matches, returns true. Currently not implemented
+// (always returns false)
+func LastFromToday() bool {
+	return false
 }
 
 // SortByDays sorts slice of movies by days to watch
@@ -108,41 +162,4 @@ func SortByYear(movies []Data) {
 	sort.Slice(movies, func(i, j int) bool {
 		return movies[i].Year > movies[j].Year
 	})
-}
-
-// WriteToCache writes collected data to cache file as json
-func WriteToCache(movies []Data) error {
-	out, err := json.MarshalIndent(movies, "", " ")
-	if err != nil {
-		return err
-	}
-	err = ioutil.WriteFile(CacheFilePath, out, 0666)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-// ReadFromCached reads json data from cache file
-func ReadFromCached() ([]Data, error) {
-	var movies []Data
-
-	out, err := ioutil.ReadFile(CacheFilePath)
-	if err != nil {
-		return movies, err
-	}
-	if err := json.Unmarshal(out, &movies); err != nil {
-		return movies, err
-	}
-	return movies, nil
-}
-
-// FindByDay return movie based by day
-func FindByDay(day int, movies []Data) (Data, error) {
-	for _, m := range movies {
-		if m.DaysToWatch == day {
-			return m, nil
-		}
-	}
-	return Data{}, fmt.Errorf("Movie not found")
 }

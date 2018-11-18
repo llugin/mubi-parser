@@ -10,8 +10,11 @@ import (
 	"github.com/llugin/mubi-parser/printer"
 	"log"
 	"os"
+	"path/filepath"
 	"time"
 )
+
+const jsonFileName = "mubi.json"
 
 func main() {
 	log.SetFlags(log.Lshortfile)
@@ -28,24 +31,24 @@ func main() {
 
 	flag.Parse()
 
+	ex, err := os.Executable()
+	if err != nil {
+		log.Fatal(err)
+	}
+	jsonFilePath := filepath.Join(filepath.Dir(ex), jsonFileName)
+	if err = movie.SetJSONFilePath(jsonFilePath); err != nil {
+		log.Fatal(err)
+	}
 	imdb.Sleep = *flagImdbSleep
 	mubi.Sleep = *flagMubiSleep
 
-	if _, err := os.Stat(movie.CacheFilePath); os.IsNotExist(err) {
-		*flagRefresh = true
-		if *flagCached {
-			log.Fatalf("Cannot read cached data - file %s does not exist", movie.CacheFilePath)
-		}
-	}
-
 	start := time.Now()
 
-	var err error
 	var movies []movie.Data
 	justWatch := *flagWatch != -1
 
 	if *flagCached || justWatch {
-		movies, err = movie.ReadFromCached()
+		movies, err = movie.ReadFromJSON()
 	} else {
 		movies, err = parser.GetMovies(*flagRefresh)
 	}
@@ -61,7 +64,7 @@ func main() {
 		sv.sort(movies)
 		printer.PrintTable(movies, *flagNoColor, *flagMaxLen)
 
-		if err = movie.WriteToCache(movies); err != nil {
+		if err = movie.WriteToJSON(movies); err != nil {
 			log.Fatal(err)
 		}
 

@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"fmt"
 	"github.com/llugin/mubi-parser/debuglog"
 	"github.com/llugin/mubi-parser/imdb"
 	"github.com/llugin/mubi-parser/movie"
@@ -18,6 +19,14 @@ func GetMovies(refresh bool) ([]movie.Data, error) {
 	done := make(chan struct{})
 	defer close(done)
 
+	if !refresh && movie.LastFromToday() {
+		movies, err := movie.ReadFromJSON()
+		if err == nil {
+			return movies, nil
+		}
+		return nil, err
+	}
+
 	out, err := mubi.SendMoviesWithBasicData(done)
 	if err != nil {
 		return movies, err
@@ -34,6 +43,31 @@ func GetMovies(refresh bool) ([]movie.Data, error) {
 	return movies, nil
 }
 
+// GetMoviesArray reads movie data from the web
+func GetMoviesArray(refresh bool) /*[30]movie.Data,*/ error {
+	var movies [30]movie.Data
+
+	done := make(chan struct{})
+	defer close(done)
+
+	out, err := mubi.SendMoviesWithBasicData(done)
+	if err != nil {
+		return /*movies,*/ err
+	}
+
+	out, cached := sendCachedDetails(refresh, done, out)
+	out = mubi.SendMoviesDetails(done, out)
+	out = imdb.SendRatings(done, out)
+
+	i := 0
+	for m := range merge(done, out, cached) {
+		movies[i] = m
+		i++
+	}
+	log.Printf("OMDB API called %v times\n", imdb.APICount)
+	return /*movies,*/ nil
+}
+
 func sendCachedDetails(refresh bool, done <-chan struct{}, in <-chan movie.Data) (<-chan movie.Data, chan movie.Data) {
 	cached := make(chan movie.Data, mubi.MaxMovies)
 	if refresh {
@@ -42,7 +76,8 @@ func sendCachedDetails(refresh bool, done <-chan struct{}, in <-chan movie.Data)
 		return in, cached
 	}
 
-	vals, err := movie.ReadFromCached()
+	fmt.Printf("parser sees %v\n", movie.JSONFilePath)
+	vals, err := movie.ReadFromJSON()
 	if err != nil {
 		debug.Printf("%v. Could not read cached data, reading from web", err)
 		return in, cached
