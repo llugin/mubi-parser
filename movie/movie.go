@@ -3,6 +3,8 @@ package movie
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/llugin/mubi-parser/debuglog"
+	//	"github.com/llugin/mubi-parser/mubi"
 	"io/ioutil"
 	"log"
 	"os"
@@ -10,12 +12,21 @@ import (
 	"path/filepath"
 	"runtime"
 	"sort"
+	"time"
 )
 
-const jsonFileName = "mubi.json"
+const (
+	jsonFileName = "mubi.json"
+
+	// time layout for data values
+	layout = "2006-1-2"
+)
 
 // JSONFilePath is a path mubi.json json file
-var JSONFilePath string
+var (
+	JSONFilePath string
+	debug        = debuglog.GetLogger()
+)
 
 // Data represent movie data collected by parser
 type Data struct {
@@ -86,6 +97,7 @@ func (d *Data) Watch() error {
 
 // WriteToJSON writes collected data to json file as json
 func WriteToJSON(movies []Data) error {
+	SortByDays(movies)
 	out, err := json.MarshalIndent(movies, "", " ")
 	if err != nil {
 		return err
@@ -101,7 +113,6 @@ func WriteToJSON(movies []Data) error {
 // ReadFromJSON reads json data from json file
 func ReadFromJSON() ([]Data, error) {
 	var movies []Data
-	fmt.Println(JSONFilePath)
 	out, err := ioutil.ReadFile(JSONFilePath)
 	if err != nil {
 		return movies, err
@@ -122,11 +133,38 @@ func FindByDay(day int, movies []Data) (Data, error) {
 	return Data{}, fmt.Errorf("Movie not found")
 }
 
-// LastFromToday checks the current date, and date of newest movie appearance
+// FromToday checks the current date, and date of newest movie appearance
 // from json - if matches, returns true. Currently not implemented
 // (always returns false)
-func LastFromToday() bool {
-	return false
+func FromToday(movies []Data) bool {
+
+	today := time.Now()
+	lastMovie, err := FindByDay(30, movies)
+	if err != nil {
+		debug.Printf("Could not find movie with 30 days left, %v\n", err)
+		return false
+	}
+
+	last, err := time.Parse(layout, lastMovie.DateAppeared)
+	if err != nil {
+		debug.Printf("Could not parse movie date, %v\n", err)
+		return false
+	}
+	return today.Year() == last.Year() && today.YearDay() == last.YearDay()
+}
+
+// SetDateAppeared sets appearance date string in recognized layout
+func (d *Data) SetDateAppeared(retrieved time.Time) {
+	d.DateAppeared = retrieved.AddDate(0, 0, d.DaysToWatch-30).Format(layout)
+}
+
+// ParseDateAppeared returns date parsed from string
+func (d *Data) ParseDateAppeared() (time.Time, error) {
+	date, err := time.Parse(layout, d.DateAppeared)
+	if err != nil {
+		return time.Time{}, err
+	}
+	return date, nil
 }
 
 // SortByDays sorts slice of movies by days to watch

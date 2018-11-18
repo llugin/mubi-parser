@@ -31,10 +31,13 @@ const (
 	selMins           = "[itemprop=duration]"
 )
 
-var debug = debuglog.GetLogger()
+var (
+	// Sleep - sleep between HTTP reqeuests to mubi site in seconds
+	Sleep = 3
 
-// Sleep - sleep between HTTP reqeuests to mubi site in seconds
-var Sleep = 3
+	debug         = debuglog.GetLogger()
+	retrievalDate time.Time
+)
 
 // SendMoviesWithBasicData returns a buffered channel with
 // movies with basic data available to collect from mubi main page
@@ -152,6 +155,9 @@ func queryBasicData(s *goquery.Selection) (movie.Data, error) {
 	if !exists {
 		err = fmt.Errorf("%v: link for movie details could not be found", md.Title)
 	}
+
+	md.SetDateAppeared(retrievalDate)
+
 	return md, err
 }
 
@@ -171,6 +177,7 @@ func getSelectionFromWebPage() (*goquery.Selection, error) {
 	if err != nil {
 		return nil, err
 	}
+	retrievalDate = time.Now()
 	defer resp.Body.Close()
 	doc, err := goquery.NewDocumentFromReader(resp.Body)
 	if err != nil {

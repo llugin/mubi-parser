@@ -19,12 +19,15 @@ func GetMovies(refresh bool) ([]movie.Data, error) {
 	done := make(chan struct{})
 	defer close(done)
 
-	if !refresh && movie.LastFromToday() {
+	if !refresh {
 		movies, err := movie.ReadFromJSON()
-		if err == nil {
-			return movies, nil
+		if err != nil {
+			return nil, err
 		}
-		return nil, err
+		if movie.FromToday(movies) {
+			debug.Println("mubi.json is up to date, don't make any connections")
+			return movies, err
+		}
 	}
 
 	out, err := mubi.SendMoviesWithBasicData(done)
@@ -41,31 +44,6 @@ func GetMovies(refresh bool) ([]movie.Data, error) {
 	}
 	log.Printf("OMDB API called %v times\n", imdb.APICount)
 	return movies, nil
-}
-
-// GetMoviesArray reads movie data from the web
-func GetMoviesArray(refresh bool) /*[30]movie.Data,*/ error {
-	var movies [30]movie.Data
-
-	done := make(chan struct{})
-	defer close(done)
-
-	out, err := mubi.SendMoviesWithBasicData(done)
-	if err != nil {
-		return /*movies,*/ err
-	}
-
-	out, cached := sendCachedDetails(refresh, done, out)
-	out = mubi.SendMoviesDetails(done, out)
-	out = imdb.SendRatings(done, out)
-
-	i := 0
-	for m := range merge(done, out, cached) {
-		movies[i] = m
-		i++
-	}
-	log.Printf("OMDB API called %v times\n", imdb.APICount)
-	return /*movies,*/ nil
 }
 
 func sendCachedDetails(refresh bool, done <-chan struct{}, in <-chan movie.Data) (<-chan movie.Data, chan movie.Data) {
