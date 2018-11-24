@@ -1,48 +1,51 @@
 package parser
 
 import (
-	"fmt"
-	"github.com/llugin/mubi-parser/debuglog"
+	"github.com/llugin/mubi-parser/debug"
 	"github.com/llugin/mubi-parser/imdb"
 	"github.com/llugin/mubi-parser/movie"
 	"github.com/llugin/mubi-parser/mubi"
-	"log"
 	"sync"
 )
 
-var debug = debuglog.GetLogger()
-
 // GetMovies reads movie data from the web
 func GetMovies(refresh bool) ([]movie.Data, error) {
-	var movies []movie.Data
 
 	done := make(chan struct{})
 	defer close(done)
 
-	if !refresh {
+	cacheSuccess := func() ([]movie.Data, bool) {
 		movies, err := movie.ReadFromJSON()
 		if err != nil {
-			return nil, err
+			debug.Log().Printf("Could not read cached data json: %s\n", err)
+			return nil, false
 		}
 		if movie.FromToday(movies) {
-			debug.Println("mubi.json is up to date, don't make any connections")
-			return movies, err
+			return movies, true
+		}
+		return nil, false
+	}
+
+	if !refresh {
+		if movies, ok := cacheSuccess(); ok {
+			return movies, nil
 		}
 	}
 
 	out, err := mubi.SendMoviesWithBasicData(done)
 	if err != nil {
-		return movies, err
+		return nil, err
 	}
 
 	out, cached := sendCachedDetails(refresh, done, out)
 	out = mubi.SendMoviesDetails(done, out)
 	out = imdb.SendRatings(done, out)
 
+	var movies []movie.Data
 	for m := range merge(done, out, cached) {
 		movies = append(movies, m)
 	}
-	log.Printf("OMDB API called %v times\n", imdb.APICount)
+	debug.Log().Printf("OMDB API called %v times\n", imdb.APICount)
 	return movies, nil
 }
 
@@ -54,10 +57,9 @@ func sendCachedDetails(refresh bool, done <-chan struct{}, in <-chan movie.Data)
 		return in, cached
 	}
 
-	fmt.Printf("parser sees %v\n", movie.JSONFilePath)
 	vals, err := movie.ReadFromJSON()
 	if err != nil {
-		debug.Printf("%v. Could not read cached data, reading from web", err)
+		debug.Log().Printf("%v. Could not read cached data, reading from web", err)
 		return in, cached
 	}
 
@@ -66,7 +68,7 @@ func sendCachedDetails(refresh bool, done <-chan struct{}, in <-chan movie.Data)
 		defer close(new)
 		defer close(cached)
 		for md := range in {
-			if val, found := find(md, vals); found == true {
+			if val, found := movie.Find(md, vals); found == true {
 				// Update days to watch value
 				val.DaysToWatch = md.DaysToWatch
 				select {
@@ -75,7 +77,7 @@ func sendCachedDetails(refresh bool, done <-chan struct{}, in <-chan movie.Data)
 					return
 				}
 			} else {
-				debug.Printf("Movie: %s not found in cached data\n", md.Title)
+				debug.Log().Printf("Movie: %s not found in cached data\n", md.Title)
 				select {
 				case new <- md:
 				case <-done:
@@ -85,15 +87,6 @@ func sendCachedDetails(refresh bool, done <-chan struct{}, in <-chan movie.Data)
 		}
 	}()
 	return new, cached
-}
-
-func find(searched movie.Data, in []movie.Data) (movie.Data, bool) {
-	for _, m := range in {
-		if searched.Title == m.Title && searched.Director == m.Director {
-			return m, true
-		}
-	}
-	return movie.Data{}, false
 }
 
 // taken from https://blog.golang.org/pipelines

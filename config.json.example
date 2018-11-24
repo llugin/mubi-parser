@@ -1,0 +1,5 @@
+{
+    "OMDB": "api_key",
+    "DataPath": "path/to/mubi.json",
+    "LogPath": "path/to/mubi.log"
+}

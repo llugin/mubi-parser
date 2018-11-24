@@ -3,16 +3,12 @@ package imdb
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/llugin/mubi-parser/debuglog"
 	"github.com/llugin/mubi-parser/movie"
 	"github.com/llugin/mubi-parser/mubi"
 	"golang.org/x/text/transform"
 	"golang.org/x/text/unicode/norm"
 	"io/ioutil"
-	"log"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -20,17 +16,14 @@ import (
 )
 
 const (
-	keyFile   = "omdb_apikey"
 	urlFormat = "http://www.omdbapi.com/?t=%s&y=%v&type=movie&apikey=%s"
 )
 
 var (
 	//APICount - OMDB API call counter
-	APICount    int
-	keyFilePath string
-	key         string
-	keyError    error
-	debug       = debuglog.GetLogger()
+	APICount int
+	//APIKey - OMDB api key
+	APIKey string
 	//Sleep - sleep time between API calls in miliseconds
 	Sleep = 200
 )
@@ -43,14 +36,6 @@ type apiResp struct {
 	Error      string `json:"Error"`
 }
 
-func init() {
-	log.SetFlags(log.Lshortfile)
-	key, keyError = getKey()
-	if keyError != nil {
-		debug.Printf("%v. Could not get OMDB API key. Skipping IMDB data acquirement.", keyError)
-	}
-}
-
 //SendRatings get movie ratings of imdb movies
 func SendRatings(done <-chan struct{}, in <-chan movie.Data) <-chan movie.Data {
 	out := make(chan movie.Data, mubi.MaxMovies)
@@ -58,7 +43,7 @@ func SendRatings(done <-chan struct{}, in <-chan movie.Data) <-chan movie.Data {
 	go func() {
 		defer close(out)
 		for m := range in {
-			if keyError == nil {
+			if APIKey != "" {
 				time.Sleep(time.Duration(Sleep) * time.Millisecond)
 				obtainMovieRating(&m)
 			}
@@ -84,36 +69,27 @@ func obtainMovieRating(m *movie.Data) {
 	if m.AltTitle != "" {
 		if ar, err = getAPIResp(m.AltTitle, m.Director, m.Year); err == nil {
 			goto Found
-		} else {
-			debug.Println(err)
 		}
 	}
 
 	// Try with approximate years (+1/-1 year)
 	if ar, err = getAPIResp(m.Title, m.Director, m.Year-1); err == nil {
 		goto Found
-	} else {
-		debug.Println(err)
 	}
 
 	if ar, err = getAPIResp(m.Title, m.Director, m.Year+1); err == nil {
 		goto Found
-	} else {
-		debug.Println(err)
 	}
 
 	// Try with normalized director name
 	if ar, err = getAPIResp(m.Title, normalizeName(m.Director), m.Year); err == nil {
 		goto Found
-	} else {
-		debug.Println(err)
 	}
 
 Found:
 	if f, err := strconv.ParseFloat(ar.ImdbRating, 32); err == nil {
 		m.ImdbRating = f
 	} else {
-		debug.Println(err)
 		m.ImdbRating = 0.0
 	}
 
@@ -125,7 +101,7 @@ func getAPIResp(title, director string, year int) (apiResp, error) {
 	var ar apiResp
 	var err error
 
-	url := fmt.Sprintf(urlFormat, strings.Replace(title, " ", "+", -1), year, key)
+	url := fmt.Sprintf(urlFormat, strings.Replace(title, " ", "+", -1), year, APIKey)
 	resp, err := http.Get(url)
 	if err != nil {
 		return ar, err
@@ -146,29 +122,14 @@ func getAPIResp(title, director string, year int) (apiResp, error) {
 	return ar, err
 }
 
-func getKey() (string, error) {
-	var key string
-	ex, err := os.Executable()
-	if err != nil {
-		return key, err
-	}
-	keyFilePath = filepath.Join(filepath.Dir(ex), keyFile)
-
-	out, err := ioutil.ReadFile(keyFilePath)
-	if err != nil {
-		return key, err
-	}
-	return strings.TrimSpace(string(out)), nil
-}
-
 func normalizeName(in string) string {
+	isMn := func(r rune) bool {
+		return unicode.Is(unicode.Mn, r)
+	}
+
 	in = strings.Replace(in, "ł", "l", -1)
 	in = strings.Replace(in, "Ł", "L", -1)
 	t := transform.Chain(norm.NFD, transform.RemoveFunc(isMn), norm.NFC)
 	result, _, _ := transform.String(t, in)
 	return result
-}
-
-func isMn(r rune) bool {
-	return unicode.Is(unicode.Mn, r)
 }

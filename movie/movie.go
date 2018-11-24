@@ -3,11 +3,9 @@ package movie
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/llugin/mubi-parser/debuglog"
-	//	"github.com/llugin/mubi-parser/mubi"
+	"github.com/llugin/mubi-parser/debug"
 	"io/ioutil"
 	"log"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
@@ -24,8 +22,7 @@ const (
 
 // JSONFilePath is a path mubi.json json file
 var (
-	JSONFilePath string
-	debug        = debuglog.GetLogger()
+	JSONPath = ""
 )
 
 // Data represent movie data collected by parser
@@ -50,18 +47,9 @@ func init() {
 	log.SetFlags(log.Lshortfile)
 }
 
-// SetJSONFilePath sets path to json file with stored movie data
-func SetJSONFilePath(path string) error {
-	abs, err := filepath.Abs(path)
-	if err != nil {
-		return err
-	}
-	dir := filepath.Dir(abs)
-	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		return err
-	}
-	JSONFilePath = abs
-	return nil
+func jsonfile() string {
+	return filepath.Join(JSONPath, jsonFileName)
+
 }
 
 // AbbrevCountry abbreviates names of selected countries
@@ -103,7 +91,7 @@ func WriteToJSON(movies []Data) error {
 		return err
 	}
 
-	err = ioutil.WriteFile(JSONFilePath, out, 0666)
+	err = ioutil.WriteFile(jsonfile(), out, 0666)
 	if err != nil {
 		return err
 	}
@@ -113,7 +101,7 @@ func WriteToJSON(movies []Data) error {
 // ReadFromJSON reads json data from json file
 func ReadFromJSON() ([]Data, error) {
 	var movies []Data
-	out, err := ioutil.ReadFile(JSONFilePath)
+	out, err := ioutil.ReadFile(jsonfile())
 	if err != nil {
 		return movies, err
 	}
@@ -141,13 +129,13 @@ func FromToday(movies []Data) bool {
 	today := time.Now()
 	lastMovie, err := FindByDay(30, movies)
 	if err != nil {
-		debug.Printf("Could not find movie with 30 days left, %v\n", err)
+		debug.Log().Printf("Could not find movie with 30 days left, %v\n", err)
 		return false
 	}
 
 	last, err := time.Parse(layout, lastMovie.DateAppeared)
 	if err != nil {
-		debug.Printf("Could not parse movie date, %v\n", err)
+		debug.Log().Printf("Could not parse movie date, %v\n", err)
 		return false
 	}
 	return today.Year() == last.Year() && today.YearDay() == last.YearDay()
@@ -165,6 +153,16 @@ func (d *Data) ParseDateAppeared() (time.Time, error) {
 		return time.Time{}, err
 	}
 	return date, nil
+}
+
+// Find searches for movie in movie slice
+func Find(searched Data, in []Data) (Data, bool) {
+	for _, m := range in {
+		if searched.Title == m.Title && searched.Director == m.Director {
+			return m, true
+		}
+	}
+	return Data{}, false
 }
 
 // SortByDays sorts slice of movies by days to watch

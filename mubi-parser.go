@@ -1,13 +1,16 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/llugin/mubi-parser/debug"
 	"github.com/llugin/mubi-parser/imdb"
 	"github.com/llugin/mubi-parser/movie"
 	"github.com/llugin/mubi-parser/mubi"
 	"github.com/llugin/mubi-parser/parser"
 	"github.com/llugin/mubi-parser/printer"
+	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -15,6 +18,33 @@ import (
 )
 
 const jsonFileName = "mubi.json"
+
+type config struct {
+	OMDBKey  string `json:"OMDBKey"`
+	DataPath string `json:"DataPath"`
+	LogPath  string `json:"LogPath"`
+}
+
+func readConfig() (config, error) {
+	ex, err := os.Executable()
+	if err != nil {
+		return config{}, err
+	}
+	cwd := filepath.Dir(ex)
+	configPath := filepath.Join(cwd, "mubiconf.json")
+	if _, err = os.Stat(configPath); os.IsNotExist(err) {
+		// Set default values
+		return config{"", cwd, cwd}, nil
+	}
+
+	out, err := ioutil.ReadFile(configPath)
+	if err != nil {
+		return config{}, err
+	}
+	var c config
+	err = json.Unmarshal(out, &c)
+	return c, err
+}
 
 func main() {
 	log.SetFlags(log.Lshortfile)
@@ -30,15 +60,15 @@ func main() {
 	flag.Var(&sv, "sort", "Sort by: [mubi|imdb|days|mins|year], default: days. Add '-' at argument end to reverse order")
 
 	flag.Parse()
-
-	ex, err := os.Executable()
+	conf, err := readConfig()
 	if err != nil {
 		log.Fatal(err)
 	}
-	jsonFilePath := filepath.Join(filepath.Dir(ex), jsonFileName)
-	if err = movie.SetJSONFilePath(jsonFilePath); err != nil {
-		log.Fatal(err)
-	}
+
+	movie.JSONPath = conf.DataPath
+	imdb.APIKey = conf.OMDBKey
+	debug.InitLogger(conf.LogPath)
+
 	imdb.Sleep = *flagImdbSleep
 	mubi.Sleep = *flagMubiSleep
 
@@ -70,7 +100,6 @@ func main() {
 
 		log.Printf("Total time: %0.f s\n", time.Since(start).Seconds())
 	}
-
 }
 
 func watch(movies []movie.Data, day int) error {
