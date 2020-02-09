@@ -2,13 +2,14 @@ package mubi
 
 import (
 	"fmt"
-	"github.com/PuerkitoBio/goquery"
-	"github.com/llugin/mubi-parser/debug"
-	"github.com/llugin/mubi-parser/movie"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/PuerkitoBio/goquery"
+	"github.com/llugin/mubi-parser/debugging"
+	"github.com/llugin/mubi-parser/movie"
 )
 
 const (
@@ -52,7 +53,7 @@ func SendMoviesWithBasicData(done <-chan struct{}) (<-chan movie.Data, error) {
 		s.Each(func(i int, s *goquery.Selection) {
 			movie, err := queryBasicData(s)
 			if err != nil {
-				debug.Log().Println(err)
+				debugging.Log().Println(err)
 			} else {
 				select {
 				case moviesChan <- movie:
@@ -79,15 +80,16 @@ func SendMoviesDetails(done <-chan struct{}, in <-chan movie.Data) <-chan movie.
 			time.Sleep(time.Duration(Sleep) * time.Second)
 
 			resp, err = http.Get(md.MubiLink)
+			debugging.Log().Printf("getting %s\n", md.MubiLink)
 			if err != nil {
-				debug.Log().Println(err)
+				debugging.Log().Println(err)
 				goto Send
 			}
 			defer resp.Body.Close()
 
 			doc, err = goquery.NewDocumentFromReader(resp.Body)
 			if err != nil {
-				debug.Log().Println(err)
+				debugging.Log().Println(err)
 				goto Send
 			}
 			acquireDetailsFromDocument(&md, doc)
@@ -108,7 +110,7 @@ func acquireDetailsFromDocument(m *movie.Data, doc *goquery.Document) {
 	if f, err := strconv.ParseFloat(ratingStr, 32); err == nil {
 		m.MubiRating = f
 	} else {
-		debug.Log().Println(err)
+		debugging.Log().Println(err)
 		m.MubiRating = 0.0
 	}
 	m.Genre = strings.TrimSpace(doc.Find(selGenre).Text())
@@ -117,7 +119,7 @@ func acquireDetailsFromDocument(m *movie.Data, doc *goquery.Document) {
 	if i, err := strconv.Atoi(minsStr); err == nil {
 		m.Mins = i
 	} else {
-		debug.Log().Println(err)
+		debugging.Log().Println(err)
 	}
 	raw := doc.Find(selRatingsNumber).Text()
 	m.MubiRatingsNumber = strings.TrimSpace(strings.Trim(raw, "Ratings\n"))
@@ -138,14 +140,14 @@ func queryBasicData(s *goquery.Selection) (movie.Data, error) {
 	if err == nil {
 		md.Year = year
 	} else {
-		debug.Log().Println(err)
+		debugging.Log().Println(err)
 	}
 
 	daysToWatchStr := s.Find(selDaysToWatch).Text()
 	if daysToWatch, err := parseDaysToWatch(daysToWatchStr); err == nil {
 		md.DaysToWatch = daysToWatch
 	} else {
-		debug.Log().Println(err)
+		debugging.Log().Println(err)
 	}
 
 	link, exists := s.Find(selLink).Attr("href")

@@ -3,16 +3,18 @@ package imdb
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/llugin/mubi-parser/movie"
-	"github.com/llugin/mubi-parser/mubi"
-	"golang.org/x/text/transform"
-	"golang.org/x/text/unicode/norm"
 	"io/ioutil"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 	"unicode"
+
+	"github.com/llugin/mubi-parser/debugging"
+	"github.com/llugin/mubi-parser/movie"
+	"github.com/llugin/mubi-parser/mubi"
+	"golang.org/x/text/transform"
+	"golang.org/x/text/unicode/norm"
 )
 
 const (
@@ -46,6 +48,8 @@ func SendRatings(done <-chan struct{}, in <-chan movie.Data) <-chan movie.Data {
 			if APIKey != "" {
 				time.Sleep(time.Duration(Sleep) * time.Millisecond)
 				obtainMovieRating(&m)
+			} else {
+				debugging.Log().Println("no OMDB Api Key")
 			}
 			select {
 			case out <- m:
@@ -64,32 +68,43 @@ func obtainMovieRating(m *movie.Data) {
 
 	if ar, err = getAPIResp(m.Title, m.Director, m.Year); err == nil {
 		goto Found
+	} else {
+		debugging.Log().Println(err)
 	}
 	// Try alternative title
 	if m.AltTitle != "" {
 		if ar, err = getAPIResp(m.AltTitle, m.Director, m.Year); err == nil {
 			goto Found
+		} else {
+			debugging.Log().Println(err)
 		}
 	}
 
 	// Try with approximate years (+1/-1 year)
 	if ar, err = getAPIResp(m.Title, m.Director, m.Year-1); err == nil {
 		goto Found
+	} else {
+		debugging.Log().Println(err)
 	}
 
 	if ar, err = getAPIResp(m.Title, m.Director, m.Year+1); err == nil {
 		goto Found
+	} else {
+		debugging.Log().Println(err)
 	}
 
 	// Try with normalized director name
 	if ar, err = getAPIResp(m.Title, normalizeName(m.Director), m.Year); err == nil {
 		goto Found
+	} else {
+		debugging.Log().Println(err)
 	}
 
 Found:
 	if f, err := strconv.ParseFloat(ar.ImdbRating, 32); err == nil {
 		m.ImdbRating = f
 	} else {
+		debugging.Log().Printf("Could not parse imdb rating '%s' as a float\n", ar.ImdbRating)
 		m.ImdbRating = 0.0
 	}
 

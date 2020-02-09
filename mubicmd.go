@@ -4,17 +4,18 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/llugin/mubi-parser/debug"
-	"github.com/llugin/mubi-parser/imdb"
-	"github.com/llugin/mubi-parser/movie"
-	"github.com/llugin/mubi-parser/mubi"
-	"github.com/llugin/mubi-parser/parser"
-	"github.com/llugin/mubi-parser/printer"
 	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/llugin/mubi-parser/debugging"
+	"github.com/llugin/mubi-parser/imdb"
+	"github.com/llugin/mubi-parser/movie"
+	"github.com/llugin/mubi-parser/mubi"
+	"github.com/llugin/mubi-parser/parser"
+	"github.com/llugin/mubi-parser/printer"
 )
 
 const jsonFileName = "mubi.json"
@@ -50,6 +51,7 @@ func main() {
 	log.SetFlags(log.Lshortfile)
 
 	flagCached := flag.Bool("cached", false, "Read only data from mubi.json file - no web connection are made")
+	flagStderrLog := flag.Bool("stderr-debug", false, "Print debug info to stderr")
 	flagMubiSleep := flag.Int("mubi-sleep", 3, "Sleep between mubi HTTP requests in seconds")
 	flagImdbSleep := flag.Int("imdb-sleep", 200, "Sleep between OMDB API calls in milliseconds")
 	flagNoColor := flag.Bool("no-color", false, "Disable color output")
@@ -67,7 +69,7 @@ func main() {
 
 	movie.JSONPath = conf.DataPath
 	imdb.APIKey = conf.OMDBKey
-	debug.InitLogger(conf.LogPath)
+	debugging.InitLogger(conf.LogPath, *flagStderrLog)
 
 	imdb.Sleep = *flagImdbSleep
 	mubi.Sleep = *flagMubiSleep

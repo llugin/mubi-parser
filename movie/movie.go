@@ -3,7 +3,6 @@ package movie
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/llugin/mubi-parser/debug"
 	"io/ioutil"
 	"log"
 	"os/exec"
@@ -11,6 +10,8 @@ import (
 	"runtime"
 	"sort"
 	"time"
+
+	"github.com/llugin/mubi-parser/debugging"
 )
 
 const (
@@ -63,6 +64,8 @@ func (d *Data) AbbrevCountry() {
 		d.Country = "USSR"
 	case "South Africa":
 		d.Country = "RSA"
+	case "Democratic Republic of the Congo":
+		d.Country = "DR Congo"
 	default:
 		return
 	}
@@ -129,13 +132,13 @@ func FromToday(movies []Data) bool {
 	today := time.Now()
 	lastMovie, err := FindByDay(30, movies)
 	if err != nil {
-		debug.Log().Printf("Could not find movie with 30 days left, %v\n", err)
+		debugging.Log().Printf("Could not find movie with 30 days left, %v\n", err)
 		return false
 	}
 
 	last, err := time.Parse(layout, lastMovie.DateAppeared)
 	if err != nil {
-		debug.Log().Printf("Could not parse movie date, %v\n", err)
+		debugging.Log().Printf("Could not parse movie date, %v\n", err)
 		return false
 	}
 	return today.Year() == last.Year() && today.YearDay() == last.YearDay()

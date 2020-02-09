@@ -1,11 +1,12 @@
 package parser
 
 import (
-	"github.com/llugin/mubi-parser/debug"
+	"sync"
+
+	"github.com/llugin/mubi-parser/debugging"
 	"github.com/llugin/mubi-parser/imdb"
 	"github.com/llugin/mubi-parser/movie"
 	"github.com/llugin/mubi-parser/mubi"
-	"sync"
 )
 
 // GetMovies reads movie data from the web
@@ -13,18 +14,6 @@ func GetMovies(refresh bool) ([]movie.Data, error) {
 
 	done := make(chan struct{})
 	defer close(done)
-
-	cacheSuccess := func() ([]movie.Data, bool) {
-		movies, err := movie.ReadFromJSON()
-		if err != nil {
-			debug.Log().Printf("Could not read cached data json: %s\n", err)
-			return nil, false
-		}
-		if movie.FromToday(movies) {
-			return movies, true
-		}
-		return nil, false
-	}
 
 	if !refresh {
 		if movies, ok := cacheSuccess(); ok {
@@ -45,8 +34,20 @@ func GetMovies(refresh bool) ([]movie.Data, error) {
 	for m := range merge(done, out, cached) {
 		movies = append(movies, m)
 	}
-	debug.Log().Printf("OMDB API called %v times\n", imdb.APICount)
+	debugging.Log().Printf("OMDB API called %v times\n", imdb.APICount)
 	return movies, nil
+}
+
+func cacheSuccess() ([]movie.Data, bool) {
+	movies, err := movie.ReadFromJSON()
+	if err != nil {
+		debugging.Log().Printf("Could not read cached data json: %s\n", err)
+		return nil, false
+	}
+	if movie.FromToday(movies) {
+		return movies, true
+	}
+	return nil, false
 }
 
 func sendCachedDetails(refresh bool, done <-chan struct{}, in <-chan movie.Data) (<-chan movie.Data, chan movie.Data) {
@@ -59,7 +60,7 @@ func sendCachedDetails(refresh bool, done <-chan struct{}, in <-chan movie.Data)
 
 	vals, err := movie.ReadFromJSON()
 	if err != nil {
-		debug.Log().Printf("%v. Could not read cached data, reading from web", err)
+		debugging.Log().Printf("%v. Could not read cached data, reading from web", err)
 		return in, cached
 	}
 
@@ -77,7 +78,7 @@ func sendCachedDetails(refresh bool, done <-chan struct{}, in <-chan movie.Data)
 					return
 				}
 			} else {
-				debug.Log().Printf("Movie: %s not found in cached data\n", md.Title)
+				debugging.Log().Printf("Movie: %s not found in cached data\n", md.Title)
 				select {
 				case new <- md:
 				case <-done:
